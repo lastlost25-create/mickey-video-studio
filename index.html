@@ -96,6 +96,7 @@ video.preview{width:100%; border-radius:10px; margin-top:10px; background:#000;}
   <button data-tab="t4">📝 Prompt Lab</button>
   <button data-tab="t5">🎵 Song Studio</button>
   <button data-tab="t6">🎼 Music Composer</button>
+  <button data-tab="t7">🪈 Flute Cover</button>
 </nav>
 <main>
 
@@ -307,6 +308,19 @@ video.preview{width:100%; border-radius:10px; margin-top:10px; background:#000;}
     </div>
   </div>
   <div class="card">
+    <h3>🎺 Lead instrument</h3>
+    <p class="hint">Pluck is the default lead. Pick a flute and the melody sings in that tradition's scale, timbre and ornaments.</p>
+    <div class="seg" id="segMcLead">
+      <button data-v="" class="sel">🎸 Pluck</button>
+      <button data-v="nay">🕌 Arabic Nay</button>
+      <button data-v="pak">🇵🇰 Pakistani</button>
+      <button data-v="bansuri">🇮🇳 Bansuri</button>
+      <button data-v="ney">🇹🇷 Turkish Ney</button>
+      <button data-v="dizi">🇨🇳 Dizi</button>
+    </div>
+    <p class="hint" id="mcLeadHint"></p>
+  </div>
+  <div class="card">
     <h3>🎛️ Controls</h3>
     <label>Tempo <span id="mcBpmVal">78</span> BPM</label>
     <input type="range" id="rMcBpm" min="50" max="140" value="78">
@@ -339,6 +353,39 @@ video.preview{width:100%; border-radius:10px; margin-top:10px; background:#000;}
     <button class="btn ghost" id="bMcVideo">🎬 Use in video</button>
     <div class="dl" id="dlMc"><a href="#" download>⬇ Download music</a></div>
     <p class="hint">Generative melodies — great for background scores, not a replacement for a human songwriter. WAV is big but plays everywhere. Tip: headphones reveal the bass properly; phone speakers hide it.</p>
+  </div>
+</section>
+<!-- ============ TAB 7 : Flute Cover ============ -->
+<section class="tab" id="t7">
+  <div class="card">
+    <h3>🪈 Flute Cover</h3>
+    <span class="limit alpha">Experimental · best on clear melodies</span>
+    <p class="hint">Upload a song — the tool listens, traces its main melody note-by-note, then plays it back on the flute of your choice. <b>Works best on songs with a clear lead melody — dense busy mixes confuse the tracing.</b> Your audio never leaves your device.</p>
+    <label>1 · Your song (MP3/WAV, max ~25MB)</label>
+    <input type="file" id="fT7" accept="audio/*" style="padding:10px;">
+    <div class="row"><span>✂️ Use first 60 seconds only</span><label class="switch"><input type="checkbox" id="cT760" checked><span class="knob"></span></label></div>
+    <button class="btn" id="bT7trace">🔍 Trace melody</button>
+    <div class="prog" id="prog7"><div></div></div>
+    <div class="status" id="st7"></div>
+  </div>
+  <div class="card" id="t7result" style="display:none;">
+    <h3>🎼 Traced melody</h3>
+    <p class="hint">Each block below is a detected note. If it looks like random confetti, the tracing got lost — try a song with a clearer lead melody.</p>
+    <canvas id="t7strip" style="width:100%;height:120px;background:#0a0a10;border-radius:10px;"></canvas>
+    <p class="hint" id="t7notes"></p>
+    <label>2 · Flute style</label>
+    <div class="seg" id="segT7flute">
+      <button data-v="nay" class="sel">🕌 Nay</button>
+      <button data-v="pak">🇵🇰 Pakistani</button>
+      <button data-v="bansuri">🇮🇳 Bansuri</button>
+      <button data-v="ney">🇹🇷 Ney</button>
+      <button data-v="dizi">🇨🇳 Dizi</button>
+    </div>
+    <div class="status" id="st7b"></div>
+    <button class="btn" id="bT7play">▶ Play flute cover</button>
+    <button class="btn ghost" id="bT7wav">⬇ Download WAV</button>
+    <button class="btn ghost" id="bT7video">🎬 Use in video</button>
+    <div class="dl" id="dl7"><a href="#" download>⬇ Download flute cover</a></div>
   </div>
 </section>
 
@@ -757,6 +804,113 @@ document.getElementById("fT5aud").addEventListener("change",e=>{
   gotoTab("t1");
   setStatus("st1","🎵 Song attached: "+f.name+" — pick a photo above and hit Render.","ok");
 });
+
+/* ================= shared flute engine (Tab 6 lead + Tab 7 cover) =================
+   100% synthesized: no samples, no network. */
+var FLUTES={
+  nay:    {label:"🕌 Arabic Nay",   scale:[0,1,4,5,7,8,10,12,13,16,17,19,20,22,24], harm:[1,0.45,0.22],      breath:0.35, vib:5.5, vibAmt:0.012, porta:0.06, noteLen:4.5, blurb:"Hijaz scale · breathy · quick slides into notes"},
+  pak:    {label:"🇵🇰 Pakistani",   scale:[0,2,4,5,7,9,10,12,14,16,17,19,21,22,24], harm:[1,0.50,0.25],      breath:0.30, vib:5.0, vibAmt:0.008, porta:0.12, noteLen:5,   blurb:"Khamaj flavour · warm meend glides"},
+  bansuri:{label:"🇮🇳 Bansuri",     scale:[0,2,4,6,7,9,11,12,14,16,18,19,21,23,24], harm:[1,0.35,0.15],      breath:0.45, vib:4.5, vibAmt:0.010, porta:0.25, noteLen:6,   blurb:"Yaman flavour · slow dreamy glides"},
+  ney:    {label:"🇹🇷 Turkish Ney", scale:[0,1,4,5,7,8,10,12,13,16,17,19,20,22,24], harm:[1,0.40,0.18],      breath:0.55, vib:6.0, vibAmt:0.014, porta:0.08, noteLen:4.5, breathAttack:true, blurb:"Hijaz/Uşşak · airy breath attacks"},
+  dizi:   {label:"🇨🇳 Chinese Dizi",scale:[0,2,4,7,9,12,14,16,19,21,24],            harm:[1,0.70,0.45,0.25],  breath:0.20, vib:6.5, vibAmt:0.006, porta:0.02, noteLen:3, flutter:true, blurb:"Pentatonic · bright · flutter ornaments"}
+};
+function fluteHz(m){return 440*Math.pow(2,(m-69)/12);}
+/* e: {midi, dur, vel, flute (key into FLUTES), portaFrom (midi or null)} */
+function fluteNote(ctx,out,t,e,NB,dSend){
+  var F=FLUTES[e.flute]||FLUTES.nay;
+  var v=e.vel||0.7, f0=fluteHz(e.midi), durF=Math.min(e.dur||1,4.5);
+  var g=ctx.createGain();
+  var atk=F.breathAttack?0.09:0.05, peak=0.5*v;
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.linearRampToValueAtTime(peak,t+atk);
+  g.gain.setValueAtTime(peak,t+Math.max(atk,durF-0.18));
+  g.gain.exponentialRampToValueAtTime(0.0001,t+durF);
+  var oscs=[];
+  F.harm.forEach(function(a,i){
+    var mult=i+1, o=ctx.createOscillator();
+    o.type="sine";
+    if(e.portaFrom!=null&&F.porta>0){
+      o.frequency.setValueAtTime(fluteHz(e.portaFrom)*mult,t);
+      o.frequency.linearRampToValueAtTime(f0*mult,t+F.porta);
+    }else{ o.frequency.value=f0*mult; }
+    var og=ctx.createGain(); og.gain.value=a;
+    o.connect(og); og.connect(g); oscs.push(o);
+  });
+  /* vibrato with player-like delayed onset */
+  var lfo=ctx.createOscillator(), lg=ctx.createGain();
+  lfo.type="sine"; lfo.frequency.value=F.vib;
+  lg.gain.setValueAtTime(0.0001,t);
+  lg.gain.linearRampToValueAtTime(f0*F.vibAmt,t+Math.min(0.35,durF*0.4));
+  lfo.connect(lg);
+  oscs.forEach(function(o){lg.connect(o.frequency);});
+  /* breath noise bed */
+  var bn=ctx.createBufferSource(); bn.buffer=NB; bn.loop=true;
+  var bf=ctx.createBiquadFilter(); bf.type="bandpass";
+  bf.frequency.value=Math.min(f0*2,6000); bf.Q.value=0.6;
+  var bg=ctx.createGain(); bg.gain.value=F.breath*0.10;
+  bn.connect(bf); bf.connect(bg); bg.connect(g);
+  /* ney breath chop at note start */
+  if(F.breathAttack){
+    var ba=ctx.createBufferSource(); ba.buffer=NB;
+    var baf=ctx.createBiquadFilter(); baf.type="bandpass"; baf.frequency.value=900; baf.Q.value=1;
+    var bag=ctx.createGain();
+    bag.gain.setValueAtTime(0.22*v,t);
+    bag.gain.exponentialRampToValueAtTime(0.0001,t+0.09);
+    ba.connect(baf); baf.connect(bag); bag.connect(out);
+    ba.start(t); ba.stop(t+0.12);
+  }
+  /* dizi flutter-tongue on longer notes */
+  var chainOut=g;
+  if(F.flutter&&durF>0.45){
+    var am=ctx.createGain(), fl2=ctx.createOscillator(), fg=ctx.createGain();
+    fl2.frequency.value=24; fg.gain.value=0.35; am.gain.value=0.65;
+    fl2.connect(fg); fg.connect(am.gain);
+    g.connect(am); chainOut=am;
+    fl2.start(t); fl2.stop(t+durF+0.05);
+  }
+  chainOut.connect(out);
+  if(dSend){var dsg=ctx.createGain(); dsg.gain.value=0.35; chainOut.connect(dsg); dsg.connect(dSend);}
+  var stopT=t+durF+0.1;
+  oscs.forEach(function(o){o.start(t);o.stop(stopT);});
+  lfo.start(t); lfo.stop(stopT);
+  bn.start(t); bn.stop(stopT);
+}
+/* YIN pitch tracker: frame Float32Array -> {freq,conf} or null */
+function yinPitch(frame,sr,fmin,fmax,th){
+  fmin=fmin||80; fmax=fmax||1000; th=th||0.12;
+  var N=frame.length;
+  var tauMax=Math.min(N>>1,Math.floor(sr/fmin));
+  var tauMin=Math.max(2,Math.floor(sr/fmax));
+  var df=new Float32Array(tauMax+1),run=0,tau,j;
+  for(tau=0;tau<=tauMax;tau++){var s=0;for(j=0;j+tau<N;j++){var d=frame[j]-frame[j+tau];s+=d*d;}df[tau]=s;}
+  var cm=new Float32Array(tauMax+1);cm[0]=1;
+  for(tau=1;tau<=tauMax;tau++){run+=df[tau];cm[tau]=df[tau]*tau/run;}
+  var tEst=-1;
+  for(var t2=tauMin;t2<=tauMax;t2++){if(cm[t2]<th){while(t2+1<=tauMax&&cm[t2+1]<cm[t2])t2++;tEst=t2;break;}}
+  if(tEst<0)return null;
+  var x0=tEst>0?tEst-1:tEst,x2=tEst<tauMax?tEst+1:tEst;
+  var s0=cm[x0],s1=cm[tEst],s2=cm[x2],den=(s0+s2-2*s1);
+  var better=den!==0?tEst+0.5*(s0-s2)/den:tEst;
+  return {freq:sr/better,conf:1-cm[tEst]};
+}
+/* 16-bit WAV encoder for an AudioBuffer */
+function t7WavBlob(buf){
+  var nCh=buf.numberOfChannels,sr=buf.sampleRate,n=buf.length;
+  var bytes=44+n*nCh*2,ab=new ArrayBuffer(bytes),vw=new DataView(ab);
+  function ws(o,s){for(var i=0;i<s.length;i++)vw.setUint8(o+i,s.charCodeAt(i));}
+  ws(0,"RIFF");vw.setUint32(4,bytes-8,true);ws(8,"WAVE");ws(12,"fmt ");
+  vw.setUint32(16,16,true);vw.setUint16(20,1,true);vw.setUint16(22,nCh,true);
+  vw.setUint32(24,sr,true);vw.setUint32(28,sr*nCh*2,true);
+  vw.setUint16(32,nCh*2,true);vw.setUint16(34,16,true);
+  ws(36,"data");vw.setUint32(40,n*nCh*2,true);
+  var chs=[],c,i;for(c=0;c<nCh;c++)chs.push(buf.getChannelData(c));
+  var o=44;
+  for(i=0;i<n;i++)for(c=0;c<nCh;c++){
+    var s=Math.max(-1,Math.min(1,chs[c][i]));
+    vw.setInt16(o,s<0?s*0x8000:s*0x7FFF,true);o+=2;
+  }
+  return new Blob([ab],{type:"audio/wav"});
+}
 </script>
 <script>
 /* ================= TAB 6 : Music Composer =================
@@ -847,18 +1001,29 @@ function mcCompose(st){
     /* riser into the finale */
     if(MS.riser&&b>=bars-2) push(bt,"riser",{dur:Math.min(bar*2,total-bt),vel:vel(0.5)});
     /* melody: seeded random walk on the scale, with phrase rests */
-    if(MS.lead!=="none"&&!isFirst){
-      var deg=2+Math.floor(rng()*3), melBase=K.root+24;
-      var slots=(MS.lead==="piano"||MS.lead==="arp")?8:8;
+    /* flute lead (Lead instrument card) overrides scale + sings longer notes */
+    var useFlute=!!st.fluteLead, FF=useFlute?FLUTES[st.fluteLead]:null;
+    var melScale=useFlute?FF.scale:scale;
+    var melDens=useFlute?Math.min(0.62,dens*0.72):dens;
+    if(MS.lead!=="none"||useFlute){
+      if(!isFirst){
+      var deg=2+Math.floor(rng()*3), melBase=K.root+24, prevM=null;
+      var slots=8;
       for(s=0;s<slots;s++){
         var ti=s*2;
-        if(rng()<dens||(s%4===0&&rng()<0.8)){
+        if(rng()<melDens||(s%4===0&&rng()<0.8)){
           if(s===slots-1&&b%2===1&&rng()<0.5) continue;
           deg+=Math.floor(rng()*5)-2;
-          deg=Math.max(0,Math.min(scale.length-1,deg));
-          var kind=MS.lead==="piano"?"piano":(MS.lead==="arp"?"arp":"pluck");
-          push(bt+ti*step+sw(ti)+jit(),kind,{midi:melBase+scale[deg],dur:step*(MS.lead==="piano"?6:2.5),vel:vel(0.75)});
+          deg=Math.max(0,Math.min(melScale.length-1,deg));
+          var mmidi=melBase+melScale[deg], kind, useDur;
+          if(useFlute){kind="flute";useDur=step*FF.noteLen;}
+          else{kind=MS.lead==="piano"?"piano":(MS.lead==="arp"?"arp":"pluck");useDur=step*(MS.lead==="piano"?6:2.5);}
+          var mev={midi:mmidi,dur:useDur,vel:vel(0.75)};
+          if(useFlute){mev.flute=st.fluteLead;if(prevM!=null&&Math.abs(mmidi-prevM)<=7)mev.portaFrom=prevM;}
+          push(bt+ti*step+sw(ti)+jit(),kind,mev);
+          prevM=mmidi;
         }
+      }
       }
     }
   }
@@ -956,6 +1121,7 @@ function mcInst(ctx,out,dSend,t,e,NB){
       ol.connect(fl);ol2.connect(g6);g6.connect(fl);fl.connect(gl);gl.connect(out);
       if(dSend){var ds=ctx.createGain();ds.gain.value=0.5;gl.connect(ds);ds.connect(dSend);}
       ol.start(t);ol2.start(t);ol.stop(t+dl2+0.05);ol2.stop(t+dl2+0.05);break;}
+    case "flute": fluteNote(ctx,out,t,e,NB,dSend); break;
     case "riser":{
       var sr=ctx.createBufferSource();sr.buffer=NB;sr.loop=true;
       var fr=ctx.createBiquadFilter();fr.type="bandpass";fr.Q.value=1.2;
@@ -968,11 +1134,11 @@ function mcInst(ctx,out,dSend,t,e,NB){
   }
 }
 /* ---------- state + UI wiring ---------- */
-var MC={style:"country",bpm:78,key:"Am",dur:30,intensity:6,swing:true,
+var MC={style:"country",bpm:78,key:"Am",dur:30,intensity:6,swing:true,fluteLead:"",
   seed:(Math.random()*1000000000)|0,playing:false,ctx:null,timer:null,evs:null,idx:0,t0:0};
 var mcLastBlob=null,mcLastURL=null;
 function mcSettings(){return {style:MC.style,bpm:MC.bpm,key:MC.key,dur:MC.dur,
-  intensity:MC.intensity,swingOn:MC.swing,seed:MC.seed};}
+  intensity:MC.intensity,swingOn:MC.swing,seed:MC.seed,fluteLead:MC.fluteLead};}
 function mcShowSeed(){document.getElementById("mcSeed").textContent="#"+MC.seed;}
 function mcChain(ctx,dest){
   var out=mcMaster(ctx,dest);
@@ -1088,6 +1254,12 @@ segWire("segMcStyle",function(v){
   if(MC.playing)mcPlay();setStatus("stMc","");
 });
 segWire("segMcDur",function(v){MC.dur=+v;});
+/* lead instrument: pluck (default) or one of the 5 flutes */
+segWire("segMcLead",function(v){
+  MC.fluteLead=v;
+  document.getElementById("mcLeadHint").textContent=v?("🎺 "+FLUTES[v].label+" — "+FLUTES[v].blurb):"";
+  if(MC.playing)mcPlay(); setStatus("stMc","");
+});
 document.getElementById("rMcBpm").addEventListener("input",function(e){
   MC.bpm=+e.target.value;document.getElementById("mcBpmVal").textContent=e.target.value;});
 document.getElementById("mcKey").addEventListener("change",function(e){MC.key=e.target.value;});
@@ -1110,6 +1282,250 @@ document.getElementById("bMcPlay").addEventListener("click",function(){
 document.getElementById("bMcWav").addEventListener("click",function(){mcDoRender(false);});
 document.getElementById("bMcVideo").addEventListener("click",function(){mcDoRender(true);});
 mcShowSeed();
+})();
+</script>
+<script>
+/* ================= TAB 7 : Flute Cover =================
+   Upload song -> YIN pitch trace -> flute re-synthesis.
+   All client-side. Tracing is approximate: best on clear lead melodies. */
+(function(){
+"use strict";
+var T7={file:null,notes:[],dur:0,style:"nay",keyPc:0,buf:null,actx:null,src:null,playing:false,lastURL:null};
+
+document.getElementById("fT7").addEventListener("change",function(e){
+  var f=e.target.files[0]; if(!f)return;
+  T7.file=f; T7.notes=[]; T7.buf=null; t7StopPlay(true);
+  document.getElementById("t7result").style.display="none";
+  setStatus("st7","🎵 Loaded: "+f.name+" ("+(f.size/1048576).toFixed(1)+" MB) — hit Trace melody.","ok");
+});
+segWire("segT7flute",function(v){T7.style=v; T7.buf=null; setStatus("st7b","");});
+
+document.getElementById("bT7trace").addEventListener("click",function(){
+  var f=T7.file;
+  if(!f){setStatus("st7","Pick an audio file first 🎵","err");return;}
+  if(f.size>25*1048576){setStatus("st7","That file is over 25MB — pick a smaller one.","err");return;}
+  var btn=document.getElementById("bT7trace"); btn.disabled=true;
+  var prog=document.getElementById("prog7"), bar=prog.querySelector("div");
+  prog.style.display="block"; bar.style.width="0%";
+  document.getElementById("t7result").style.display="none";
+  t7StopPlay(true);
+  setStatus("st7","Decoding audio…");
+  var AC=window.AudioContext||window.webkitAudioContext;
+  if(!AC){setStatus("st7","This browser can't decode audio.","err");btn.disabled=false;return;}
+  var actx=new AC();
+  function done(msg,cls){setStatus("st7",msg,cls||"");prog.style.display="none";btn.disabled=false;try{actx.close();}catch(x){}}
+  f.arrayBuffer().then(function(ab){return actx.decodeAudioData(ab);}).then(function(dec){
+    var sr0=dec.sampleRate, ch0=dec.getChannelData(0);
+    var ch1=dec.numberOfChannels>1?dec.getChannelData(1):null;
+    var n=ch0.length, tSr=8000, factor=Math.max(1,Math.round(sr0/tSr));
+    var use60=document.getElementById("cT760").checked;
+    var maxS=use60?Math.min(n,Math.floor(60*sr0)):n;
+    setStatus("st7","Downsampling…");
+    var dsLen=Math.floor(maxS/factor), ds=new Float32Array(dsLen), i, k;
+    for(i=0;i<dsLen;i++){
+      var s=0,c=0,base=i*factor;
+      for(k=0;k<factor&&base+k<maxS;k++){s+=ch0[base+k];c++;if(ch1){s+=ch1[base+k];c++;}}
+      ds[i]=s/Math.max(1,c);
+    }
+    T7.dur=dsLen/tSr;
+    var W=1024,HOP=512,obs=[],pos=0;
+    var total=Math.max(1,Math.floor((dsLen-W)/HOP));
+    setStatus("st7","Tracing melody… 0%");
+    (function chunk(){
+      var end=Math.min(total,pos+150), o, fr, e;
+      for(;pos<end;pos++){
+        o=pos*HOP; fr=ds.subarray(o,o+W); e=0;
+        for(k=0;k<W;k+=8)e+=fr[k]*fr[k];
+        e=Math.sqrt(e/(W/8));
+        var tm=o/tSr;
+        if(e<0.02){obs.push({t:tm,midi:null,conf:0});continue;}
+        var r=yinPitch(fr,tSr,80,1000,0.12);
+        obs.push({t:tm,midi:r?69+12*Math.log(r.freq/440)/Math.LN2:null,conf:r?r.conf:0});
+      }
+      var pc=Math.round(pos/total*100);
+      bar.style.width=pc+"%"; setStatus("st7","Tracing melody… "+pc+"%");
+      if(pos<total){setTimeout(chunk,0);return;}
+      t7Finish(obs,HOP/tSr,done);
+    })();
+  }).catch(function(err){done("Couldn't read that file: "+(err&&err.message||err),"err");});
+});
+
+function t7Finish(obs,hopT,done){
+  /* median filter over confident frames */
+  var med=obs.map(function(o,i){
+    var vs=[];
+    for(var k=-2;k<=2;k++){var q=obs[i+k];if(q&&q.midi!=null&&q.conf>0.45)vs.push(q.midi);}
+    if(!vs.length)return null;
+    vs.sort(function(a,b){return a-b;});
+    return vs[vs.length>>1];
+  });
+  /* quantize + merge into notes (min 90ms, 2-frame gap tolerance) */
+  var notes=[],cur=null,gap=0,i,m,q;
+  for(i=0;i<med.length;i++){
+    m=med[i];
+    if(m==null){gap++;if(gap>2&&cur){notes.push(cur);cur=null;}continue;}
+    q=Math.round(m);
+    if(!cur)cur={midi:q,t0:obs[i].t,t1:obs[i].t+hopT};
+    else if(q===cur.midi){cur.t1=obs[i].t+hopT;}
+    else{gap++;if(gap>2){notes.push(cur);cur={midi:q,t0:obs[i].t,t1:obs[i].t+hopT};gap=0;}}
+  }
+  if(cur)notes.push(cur);
+  notes=notes.filter(function(nn){return (nn.t1-nn.t0)>=0.09;});
+  if(!notes.length){done("No confident melody found — try a song with a clearer lead line.","err");return;}
+  /* octave unwrap: snap each note to nearest octave of previous */
+  var prev=null;
+  notes.forEach(function(nn){
+    if(prev!=null){
+      var best=nn.midi,bd=Math.abs(best-prev);
+      [-24,-12,12,24].forEach(function(kk){
+        var c=nn.midi+kk,d=Math.abs(c-prev);
+        if(d<bd-1){bd=d;best=c;}
+      });
+      nn.midi=best;
+      if(Math.abs(best-prev)<=7)nn.portaFrom=prev;
+    }
+    prev=nn.midi;
+  });
+  /* normalize into flute range (center ~midi 76) */
+  var avg=notes.reduce(function(a,nn){return a+nn.midi;},0)/notes.length;
+  var sh=Math.round((76-avg)/12)*12;
+  notes.forEach(function(nn){nn.midi+=sh;if(nn.portaFrom!=null)nn.portaFrom+=sh;});
+  /* key detect: pitch-class histogram weighted by duration */
+  var hist=[0,0,0,0,0,0,0,0,0,0,0,0],p2;
+  notes.forEach(function(nn){hist[((nn.midi%12)+12)%12]+=nn.t1-nn.t0;});
+  var pc=0;for(p2=1;p2<12;p2++)if(hist[p2]>hist[pc])pc=p2;
+  T7.keyPc=pc; T7.notes=notes; T7.buf=null;
+  document.getElementById("t7result").style.display="block";
+  t7DrawStrip();
+  var secs=notes.reduce(function(a,nn){return a+(nn.t1-nn.t0);},0);
+  document.getElementById("t7notes").textContent=
+    notes.length+" notes traced · "+secs.toFixed(0)+"s of melody in "+T7.dur.toFixed(0)+"s of audio.";
+  done("✅ Melody traced — pick a flute and hit Play.","ok");
+}
+
+function t7DrawStrip(){
+  var cv=document.getElementById("t7strip"),dpr=window.devicePixelRatio||1;
+  var w=cv.clientWidth||300,h=120;
+  cv.width=w*dpr;cv.height=h*dpr;
+  var g=cv.getContext("2d");g.scale(dpr,dpr);
+  g.fillStyle="#0a0a10";g.fillRect(0,0,w,h);
+  if(!T7.notes.length){
+    g.fillStyle="#a8a8bd";g.font="13px sans-serif";
+    g.fillText("No confident notes — try another song.",12,h/2);return;
+  }
+  var mids=T7.notes.map(function(n){return n.midi;});
+  var mMin=Math.min.apply(null,mids)-2,mMax=Math.max.apply(null,mids)+2;
+  if(mMax<=mMin)mMax=mMin+1;
+  T7.notes.forEach(function(n,i){
+    var x=n.t0/T7.dur*w, ww=Math.max(2,(n.t1-n.t0)/T7.dur*w);
+    var y=h-10-((n.midi-mMin)/(mMax-mMin))*(h-20);
+    g.fillStyle="hsl("+((28+i*13)%60+10)+",95%,58%)";
+    if(g.roundRect){g.beginPath();g.roundRect(x,y-3,ww,6,3);g.fill();}
+    else g.fillRect(x,y-3,ww,6);
+  });
+}
+
+function t7Render(){
+  return new Promise(function(resolve,reject){
+    try{
+      var OC=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+      if(!OC){reject(new Error("offline audio not supported here"));return;}
+      var sr=44100,total=T7.dur+0.6;
+      var ctx=new OC(2,Math.ceil(total*sr),sr);
+      var out=ctx.createGain();out.gain.value=0.9;
+      var comp=ctx.createDynamicsCompressor();
+      comp.threshold.value=-14;comp.ratio.value=4;
+      out.connect(comp);comp.connect(ctx.destination);
+      var NB=ctx.createBuffer(1,sr*2,sr),nd=NB.getChannelData(0),ni;
+      for(ni=0;ni<nd.length;ni++)nd[ni]=Math.random()*2-1;
+      T7.notes.forEach(function(n){
+        fluteNote(ctx,out,n.t0,{midi:n.midi,dur:(n.t1-n.t0)+0.14,vel:0.85,flute:T7.style,portaFrom:n.portaFrom},NB,null);
+      });
+      /* simple root pad backing in detected key (root+fifth+octave, no third) */
+      var root=48+T7.keyPc;
+      [0,7,12].forEach(function(iv){
+        [-5,5].forEach(function(det){
+          var o=ctx.createOscillator(),gg=ctx.createGain(),ff=ctx.createBiquadFilter();
+          o.type="sawtooth";o.frequency.value=fluteHz(root+iv);o.detune.value=det;
+          ff.type="lowpass";ff.frequency.value=700;
+          gg.gain.setValueAtTime(0.0001,0);
+          gg.gain.linearRampToValueAtTime(0.035,2);
+          gg.gain.setValueAtTime(0.035,Math.max(2,total-2));
+          gg.gain.linearRampToValueAtTime(0.0001,total-0.1);
+          o.connect(ff);ff.connect(gg);gg.connect(out);o.start(0);o.stop(total);
+        });
+      });
+      ctx.startRendering().then(resolve,reject);
+    }catch(err){reject(err);}
+  });
+}
+function t7StopPlay(silent){
+  T7.playing=false;
+  try{if(T7.src)T7.src.stop();}catch(x){}
+  try{if(T7.actx)T7.actx.close();}catch(x){}
+  T7.src=null;
+  document.getElementById("bT7play").textContent="▶ Play flute cover";
+  if(!silent)setStatus("st7b","");
+}
+document.getElementById("bT7play").addEventListener("click",function(){
+  if(T7.playing){t7StopPlay();setStatus("st7b","","");return;}
+  if(!T7.notes.length){setStatus("st7b","Trace a melody first 🔍","err");return;}
+  setStatus("st7b","🎼 Rendering flute cover… (a few seconds)");
+  var btn=this; btn.disabled=true;
+  t7Render().then(function(buf){
+    T7.buf=buf;
+    var AC=window.AudioContext||window.webkitAudioContext;
+    if(T7.actx){try{T7.actx.close();}catch(x){}}
+    T7.actx=new AC();
+    if(T7.actx.state==="suspended")T7.actx.resume();
+    var src=T7.actx.createBufferSource();
+    src.buffer=buf; src.connect(T7.actx.destination);
+    T7.src=src; T7.playing=true;
+    document.getElementById("bT7play").textContent="⏹ Stop";
+    src.onended=function(){if(T7.playing){T7.playing=false;document.getElementById("bT7play").textContent="▶ Play flute cover";}};
+    src.start();
+    setStatus("st7b","▶ Playing "+FLUTES[T7.style].label+" cover…","ok");
+  }).catch(function(err){setStatus("st7b","Render failed: "+(err&&err.message||err),"err");})
+  .then(function(){btn.disabled=false;});
+});
+document.getElementById("bT7wav").addEventListener("click",function(){
+  if(!T7.notes.length){setStatus("st7b","Trace a melody first 🔍","err");return;}
+  var btn=this; btn.disabled=true;
+  setStatus("st7b","🎼 Rendering WAV…");
+  function finish(buf){
+    T7.buf=buf;
+    var blob=t7WavBlob(buf);
+    if(T7.lastURL)URL.revokeObjectURL(T7.lastURL);
+    T7.lastURL=URL.createObjectURL(blob);
+    var dla=document.querySelector("#dl7 a");
+    dla.href=T7.lastURL; dla.download=fname("wav");
+    document.getElementById("dl7").style.display="block";
+    setStatus("st7b","✅ WAV ready ("+(blob.size/1048576).toFixed(1)+" MB)","ok");
+    btn.disabled=false;
+  }
+  if(T7.buf){finish(T7.buf);}
+  else t7Render().then(finish).catch(function(err){setStatus("st7b","Render failed: "+(err&&err.message||err),"err");btn.disabled=false;});
+});
+document.getElementById("bT7video").addEventListener("click",function(){
+  if(!T7.notes.length){setStatus("st7b","Trace a melody first 🔍","err");return;}
+  var btn=this; btn.disabled=true;
+  setStatus("st7b","🎼 Rendering…");
+  function hand(buf){
+    var blob=t7WavBlob(buf);
+    if(T7.lastURL)URL.revokeObjectURL(T7.lastURL);
+    T7.lastURL=URL.createObjectURL(blob);
+    S1.audio="file"; S1.audioURL=T7.lastURL;
+    var seg=document.getElementById("segAud");
+    seg.querySelectorAll("button").forEach(function(x){x.classList.remove("sel");});
+    var fb=seg.querySelector('button[data-v="file"]'); if(fb)fb.classList.add("sel");
+    document.getElementById("fAud").style.display="block";
+    gotoTab("t1");
+    setStatus("st1","🪈 Your flute cover attached — pick a photo above and hit Render.","ok");
+    btn.disabled=false;
+  }
+  if(T7.buf){hand(T7.buf);}
+  else t7Render().then(hand).catch(function(err){setStatus("st7b","Render failed: "+(err&&err.message||err),"err");btn.disabled=false;});
+});
 })();
 </script>
 </body>
