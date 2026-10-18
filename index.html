@@ -875,9 +875,11 @@ function fluteNote(ctx,out,t,e,NB,dSend){
   lfo.start(t); lfo.stop(stopT);
   bn.start(t); bn.stop(stopT);
 }
-/* YIN pitch tracker: frame Float32Array -> {freq,conf} or null */
+/* YIN pitch tracker: frame Float32Array -> {freq,conf} or null.
+   YIN_CONF_TH is tunable: higher = more permissive tracking (fewer NULL frames). */
+var YIN_CONF_TH=0.20;
 function yinPitch(frame,sr,fmin,fmax,th){
-  fmin=fmin||80; fmax=fmax||1000; th=th||0.12;
+  fmin=fmin||80; fmax=fmax||1000; th=th||YIN_CONF_TH;
   var N=frame.length;
   var tauMax=Math.min(N>>1,Math.floor(sr/fmin));
   var tauMin=Math.max(2,Math.floor(sr/fmax));
@@ -1317,7 +1319,7 @@ document.getElementById("bT7trace").addEventListener("click",function(){
   f.arrayBuffer().then(function(ab){return actx.decodeAudioData(ab);}).then(function(dec){
     var sr0=dec.sampleRate, ch0=dec.getChannelData(0);
     var ch1=dec.numberOfChannels>1?dec.getChannelData(1):null;
-    var n=ch0.length, tSr=8000, factor=Math.max(1,Math.round(sr0/tSr));
+    var n=ch0.length, factor=Math.max(1,Math.round(sr0/8000)), tSr=sr0/factor; /* true post-downsample rate, not 8000 */
     var use60=document.getElementById("cT760").checked;
     var maxS=use60?Math.min(n,Math.floor(60*sr0)):n;
     setStatus("st7","Downsampling…");
@@ -1339,7 +1341,7 @@ document.getElementById("bT7trace").addEventListener("click",function(){
         e=Math.sqrt(e/(W/8));
         var tm=o/tSr;
         if(e<0.02){obs.push({t:tm,midi:null,conf:0});continue;}
-        var r=yinPitch(fr,tSr,80,1000,0.12);
+        var r=yinPitch(fr,tSr,80,1000,YIN_CONF_TH);
         obs.push({t:tm,midi:r?69+12*Math.log(r.freq/440)/Math.LN2:null,conf:r?r.conf:0});
       }
       var pc=Math.round(pos/total*100);
