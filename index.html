@@ -945,93 +945,202 @@ var MSTYLES={
   romantic:{bpm:70,key:"G",swing:0,scale:"majScale",drums:"brush",bass:"root",pad:"warm",lead:"arp",melDens:0.6,delay:true,riser:false},
   epic:{bpm:96,key:"Em",swing:0,scale:"natMin",drums:"build",bass:"drive",pad:"swell",lead:"pluck",melDens:0.9,delay:false,riser:true}
 };
-/* ---------- composition (seeded) ---------- */
+/* ---------- composition (seeded): the musician engine ----------
+   Motif & phrase structure, pattern-bank drums (incl. tabla thekas),
+   pattern bass, voice-led chords, tight groove, composed dynamics.
+   Same event schema as before; UI/synth untouched. */
 function mcCompose(st){
   var rng=mulberry32(st.seed>>>0);
   var K=MCKEYS[st.key], MS=MSTYLES[st.style];
   var beat=60/st.bpm, bar=beat*4, step=beat/4;
-  var bars=Math.max(2,Math.round(st.dur/bar));
+  var bars=Math.max(4,Math.round(st.dur/bar));
   var total=bars*bar;
   var evs=[];
   var scale=SCALES[MS.scale];
-  var dens=Math.min(0.92,(0.22+st.intensity*0.055)*MS.melDens);
+  var useFlute=!!st.fluteLead, FF=useFlute?FLUTES[st.fluteLead]:null;
+  var melScale=useFlute?FF.scale:scale;
+  var melBase=K.root+24;
   var swingAmt=st.swingOn?MS.swing:0;
   function sw(i){return (i%2===1)?swingAmt*step*0.5:0;}
-  function jit(){return (rng()-0.5)*0.016;}
-  function vel(b){return b*(0.82+rng()*0.18);}
+  function jit(){return (rng()-0.5)*0.010;}          /* ±5 ms: locked in, not sloppy */
+  function vel(b){return b*(0.85+rng()*0.30);}       /* ±15 % velocity feel */
   function push(t,kind,o){o=o||{};o.t=Math.max(0,t);o.kind=kind;evs.push(o);}
-  for(var b=0;b<bars;b++){
-    var bt=b*bar, isLast=(b===bars-1), isFirst=(b===0);
-    var ch=K.prog[b%K.prog.length];
-    var croot=K.root+ch[0], third=(ch[1]==="m"?3:4);
-    var triad=[croot,croot+third,croot+7];
-    /* pad: one chord per bar */
-    push(bt,"pad",{notes:triad,dur:bar*1.02,style:MS.pad,vel:vel(0.5)});
-    /* bass */
-    var bp=MS.bass, s;
-    if(bp==="walk"){
-      var nr=K.root+K.prog[(b+1)%K.prog.length][0];
-      var ap=nr+(nr>croot?-2:2);
-      var seq=[[0,croot],[1,croot+7],[2,croot],[3,ap]];
-      for(s=0;s<4;s++) push(bt+seq[s][0]*beat,"bass",{midi:seq[s][1]-12,dur:beat*0.9,vel:vel(0.8)});
-    }else if(bp==="bounce"){
-      for(s=0;s<8;s++) push(bt+s*beat/2+sw(s),"bass",{midi:(s%2?croot+7:croot)-12,dur:beat*0.45,vel:vel(s%2?0.55:0.75)});
-    }else if(bp==="drive"){
-      for(s=0;s<8;s++) push(bt+s*beat/2,"bass",{midi:croot-12,dur:beat*0.42,vel:vel(0.7)});
-    }else if(bp==="drone"){
-      push(bt,"bass",{midi:croot-24,dur:bar,vel:vel(0.7),drone:true});
-      push(bt,"bass",{midi:croot-17,dur:bar,vel:vel(0.4),drone:true});
+  function chordAt(b){return K.prog[b%K.prog.length];}
+  function triadOf(ch){var r=K.root+ch[0],th=(ch[1]==="m"?3:4);return [r,r+th,r+7];}
+
+  /* ---- rhythm banks: 2-bar cells, {s:start in 16ths, l:length in 16ths} ---- */
+  var RCELLS=[
+    [{s:0,l:4},{s:6,l:2},{s:8,l:4},{s:14,l:2},{s:16,l:6},{s:24,l:4}],
+    [{s:0,l:8},{s:12,l:4},{s:16,l:8},{s:28,l:4}],
+    [{s:0,l:2},{s:4,l:2},{s:8,l:4},{s:14,l:2},{s:16,l:2},{s:20,l:2},{s:24,l:8}],
+    [{s:4,l:4},{s:12,l:2},{s:16,l:6},{s:24,l:2},{s:28,l:4}]
+  ];
+  var FCELLS=[ /* flute: longer sung notes, composed breathing space */
+    [{s:0,l:8},{s:12,l:4},{s:16,l:10},{s:28,l:4}],
+    [{s:0,l:12},{s:16,l:8},{s:26,l:6}],
+    [{s:4,l:8},{s:16,l:12}]
+  ];
+  var bank=useFlute?FCELLS:RCELLS;
+  var homeTones=[0,2,4]; /* tonic-triad scale degrees: strong beats lean here */
+
+  /* ---- motif: a short memorable cell. Stepwise, home-chord grounded. ---- */
+  function genMotif(cell,degStart,up){
+    var degs=[],deg=degStart,i,k;
+    for(i=0;i<cell.length;i++){
+      if(i===0){deg=degStart;}
+      else{
+        var r=rng();
+        if(r<0.60)deg+=(rng()<0.5?-1:1);            /* stepwise: a player's default */
+        else if(r<0.78)deg+=(rng()<0.5?-1:1)*2;      /* skip */
+        else if(r<0.88)deg+=0;                       /* repeat */
+        else deg+=(rng()<0.5?-1:1)*(3+((rng()*3)|0)); /* leap (rare) */
+        if(up&&rng()<0.55)deg+=1;
+        deg=Math.max(0,Math.min(melScale.length-1,deg));
+      }
+      if(cell[i].s%8===0&&rng()<0.7){ /* strong beats: lean to home chord tones */
+        var best=homeTones[0],bd=99;
+        for(k=0;k<3;k++){var dd=Math.abs(homeTones[k]-deg);if(dd<bd){bd=dd;best=homeTones[k];}}
+        if(bd<=2)deg=best;
+      }
+      degs.push(deg);
+    }
+    return {cell:cell,degs:degs};
+  }
+  /* ---- the 8-bar phrase: motif | varied repeat | answer | return ---- */
+  var mCellA=bank[(rng()*bank.length)|0];
+  var mA=genMotif(mCellA,2+((rng()*3)|0),false);
+  var nVar=mA.degs.length>=7?2:1, degsB=mA.degs.slice(), picked=[], vi, ii;
+  for(vi=0;vi<nVar;vi++){
+    do{ii=(rng()*degsB.length)|0;}while(picked.indexOf(ii)>=0);
+    picked.push(ii);
+    degsB[ii]=Math.max(0,Math.min(melScale.length-1,degsB[ii]+(rng()<0.5?-1:1)*(1+((rng()*2)|0))));
+  }
+  var mCellC=bank[(rng()*bank.length)|0];
+  var mC=genMotif(mCellC,Math.min(melScale.length-1,mA.degs[0]+2+((rng()*3)|0)),true);
+  var degsD=mA.degs.slice(); degsD[degsD.length-1]=0; /* return home */
+  var SEGS=[{cell:mA.cell,degs:mA.degs},{cell:mA.cell,degs:degsB},
+            {cell:mC.cell,degs:mC.degs},{cell:mA.cell,degs:degsD}];
+  var doMel=(MS.lead!=="none"||useFlute);
+  var energy=0.85+st.intensity*0.03;
+
+  function emitMelody(b,seg,loopVary,lift){
+    var inSeg=b%2, bt=b*bar, cell=seg.cell, i, s, q;
+    var degs=seg.degs.slice();
+    for(q=0;q<loopVary;q++){ /* small variation on later loops */
+      var vi2=(rng()*degs.length)|0;
+      degs[vi2]=Math.max(0,Math.min(melScale.length-1,degs[vi2]+(rng()<0.5?-1:1)));
+    }
+    var q2=((b/2)|0)%4, prevM=null;
+    for(i=0;i<cell.length;i++){
+      s=cell[i].s;
+      if(s<inSeg*16||s>=inSeg*16+16)continue;
+      var ls=s-inSeg*16, midi=melBase+melScale[degs[i]];
+      var pos=(q2*2+ls/16)/8, breathe=0.85+0.30*Math.sin(Math.PI*pos); /* phrase breathes */
+      var kind,useDur;
+      if(useFlute){kind="flute";useDur=Math.min(cell[i].l*step*1.5,2.4);}
+      else{kind=MS.lead==="piano"?"piano":(MS.lead==="arp"?"arp":"pluck");
+        useDur=kind==="piano"?Math.min(cell[i].l*step,1.4):(kind==="arp"?0.3:Math.min(cell[i].l*step*0.9,0.6));}
+      var mev={midi:midi,dur:useDur,vel:vel(0.75)*breathe*lift*energy};
+      if(useFlute){mev.flute=st.fluteLead;if(prevM!=null&&Math.abs(midi-prevM)<=7)mev.portaFrom=prevM;}
+      push(bt+ls*step+sw(ls)+jit(),kind,mev);
+      prevM=midi;
+    }
+  }
+
+  /* ---- voice-led chords: keep common tones, minimize movement ---- */
+  var prevV=null;
+  function voiceChord(triad){
+    var c=[[triad[0],triad[1],triad[2]],[triad[1],triad[2],triad[0]+12],[triad[2],triad[0]+12,triad[1]+12]];
+    var best=c[0],bs=1e9,i,v;
+    if(prevV){for(i=0;i<3;i++){var sm=0;for(v=0;v<3;v++)sm+=Math.abs(c[i][v]-prevV[v]);if(sm<bs){bs=sm;best=c[i];}}}
+    prevV=best;return best;
+  }
+  function chords(b,ch,lift){
+    var bt=b*bar, v=voiceChord(triadOf(ch)), i, sts;
+    if(MS.pad==="organ"||MS.pad==="bright"){ /* boom-chick / skank: offbeat chops */
+      sts=[2,6,10,14];
+      for(i=0;i<4;i++)push(bt+sts[i]*step+sw(sts[i])+jit(),"pad",{notes:v,dur:0.16,style:"chop",vel:vel(0.5)*lift});
     }else{
-      push(bt,"bass",{midi:croot-12,dur:beat*2.5,vel:vel(0.75)});
-      push(bt+beat*2,"bass",{midi:croot-5,dur:beat*1.8,vel:vel(0.6)});
+      push(bt+jit(),"pad",{notes:v,dur:bar*1.02,style:MS.pad,vel:vel(0.5)*lift});
     }
-    /* drums */
-    var dp=MS.drums;
-    function dk(arr,kind,o){for(var i=0;i<arr.length;i++){var oo={vel:vel(0.8)};if(o)for(var k in o)oo[k]=o[k];push(bt+arr[i]*step+sw(arr[i])+jit(),kind,oo);}}
-    if(dp==="country"){ dk([0,8],"kick"); dk([4,12],"brush");
-      for(s=0;s<16;s+=2) push(bt+s*step+sw(s),"hat",{vel:vel(0.25)});
-    }else if(dp==="four"){ dk([0,4,8,12],"kick"); dk([4,12],"snare");
-      for(s=0;s<16;s+=2) push(bt+s*step,"hat",{vel:vel(0.35)});
-    }else if(dp==="pulse"){ push(bt,"kick",{vel:vel(0.5),soft:true}); push(bt+beat*2,"kick",{vel:vel(0.4),soft:true});
-      for(s=0;s<16;s+=4) push(bt+s*step,"shaker",{vel:vel(0.15)});
-    }else if(dp==="brush"){ dk([4,12],"brush",{soft:true});
-    }else if(dp==="build"){ dk([0,4,8,12],"kick"); dk([4,12],"snare");
-      var hatN=isLast?16:8;
-      for(s=0;s<16;s+=16/hatN) push(bt+s*step,"hat",{vel:vel(isLast?0.5:0.3)});
-      if(isLast) for(s=8;s<16;s++) push(bt+s*step,"snare",{vel:vel(0.4+0.03*s)});
+  }
+
+  /* ---- drums: real pattern banks, not random hits ---- */
+  function drums(b,lift,isFill){
+    var bt=b*bar, mode=MS.drums, s, i, q;
+    if(useFlute&&(st.fluteLead==="pak"||st.fluteLead==="bansuri"))mode="keherwa";
+    if(st.style==="epic")mode="tintal";
+    function D(st16,kind,o){var oo={vel:vel(0.8)};if(o)for(var k in o)oo[k]=o[k];oo.vel*=lift;
+      push(bt+st16*step+sw(st16)+jit(),kind,oo);}
+    if(mode==="country"){ /* boom-chick: kick 1&3, brush 2&4, swung 8th hats */
+      D(0,"kick",{vel:vel(0.9)});D(8,"kick",{vel:vel(0.72)});
+      D(4,"brush",{vel:vel(0.9)});D(12,"brush",{vel:vel(0.95)});
+      for(s=0;s<16;s+=2)D(s,"hat",{vel:vel(s%4===2?0.32:0.22)});
+      if(isFill)for(s=8;s<16;s++)D(s,"brush",{vel:vel(0.35+0.07*(s-8))});
+    }else if(mode==="keherwa"){ /* 8-beat theka, one cycle per bar */
+      var th=[["dha",0],["ge",2],["na",4],["ti",6],["na",8],["ka",10],["dhi",12],["na",14]];
+      for(i=0;i<th.length;i++)D(th[i][1],"tabla",{bol:th[i][0],vel:vel(th[i][0]==="dha"?0.9:0.68)});
+      if(isFill){var fb=["na","ti","ka","na"];for(s=8;s<16;s++)D(s,"tabla",{bol:fb[s%4],vel:vel(0.45+0.05*s)});}
+    }else if(mode==="tintal"){ /* 16-beat cycle over 4 bars */
+      var cy=[["dha","dhin","dhin","dha"],["dha","tin","tin","ta"],
+              ["ta","dhin","dhin","dha"],["dha","dhin","dhin","dha"]];
+      var cb=cy[b%4];
+      for(q=0;q<4;q++)D(q*4,"tabla",{bol:cb[q],vel:vel(q===0?0.95:0.72)});
+      if(isFill&&b%4===3)for(s=8;s<16;s++)D(s,"snare",{vel:vel(0.38+0.06*(s-8))});
+    }else if(mode==="four"){ /* four-on-floor, offbeat hats, clap backbeat */
+      D(0,"kick",{vel:vel(0.9)});D(4,"kick",{vel:vel(0.85)});
+      D(8,"kick",{vel:vel(0.9)});D(12,"kick",{vel:vel(0.85)});
+      D(4,"clap",{vel:vel(0.85)});D(12,"clap",{vel:vel(0.9)});
+      for(s=2;s<16;s+=4)D(s,"hat",{vel:vel(0.35)});
+      if(isFill)for(s=8;s<16;s++)D(s,"snare",{vel:vel(0.35+0.07*(s-8))});
+    }else if(mode==="pulse"){
+      D(0,"kick",{vel:vel(0.5),soft:true});D(8,"kick",{vel:vel(0.4),soft:true});
+      for(s=0;s<16;s+=4)D(s,"shaker",{vel:vel(0.15)});
+    }else if(mode==="brush"){
+      D(4,"brush",{vel:vel(0.5),soft:true});D(12,"brush",{vel:vel(0.55),soft:true});
+      for(s=0;s<16;s+=2)D(s,"shaker",{vel:vel(0.10)});
+    }else{ /* sad: space is the instrument — a whisper of shaker */
+      for(s=0;s<16;s+=4)D(s,"shaker",{vel:vel(0.10)});
     }
-    /* riser into the finale */
-    if(MS.riser&&b>=bars-2) push(bt,"riser",{dur:Math.min(bar*2,total-bt),vel:vel(0.5)});
-    /* melody: seeded random walk on the scale, with phrase rests */
-    /* flute lead (Lead instrument card) overrides scale + sings longer notes */
-    var useFlute=!!st.fluteLead, FF=useFlute?FLUTES[st.fluteLead]:null;
-    var melScale=useFlute?FF.scale:scale;
-    var melDens=useFlute?Math.min(0.62,dens*0.72):dens;
-    if(MS.lead!=="none"||useFlute){
-      if(!isFirst){
-      var deg=2+Math.floor(rng()*3), melBase=K.root+24, prevM=null;
-      var slots=8;
-      for(s=0;s<slots;s++){
-        var ti=s*2;
-        if(rng()<melDens||(s%4===0&&rng()<0.8)){
-          if(s===slots-1&&b%2===1&&rng()<0.5) continue;
-          deg+=Math.floor(rng()*5)-2;
-          deg=Math.max(0,Math.min(melScale.length-1,deg));
-          var mmidi=melBase+melScale[deg], kind, useDur;
-          if(useFlute){kind="flute";useDur=step*FF.noteLen;}
-          else{kind=MS.lead==="piano"?"piano":(MS.lead==="arp"?"arp":"pluck");useDur=step*(MS.lead==="piano"?6:2.5);}
-          var mev={midi:mmidi,dur:useDur,vel:vel(0.75)};
-          if(useFlute){mev.flute=st.fluteLead;if(prevM!=null&&Math.abs(mmidi-prevM)<=7)mev.portaFrom=prevM;}
-          push(bt+ti*step+sw(ti)+jit(),kind,mev);
-          prevM=mmidi;
-        }
-      }
-      }
+  }
+
+  /* ---- bass with intent: patterns, chord tones on strong beats ---- */
+  function bassLine(b,ch,lift,isFill){
+    var bt=b*bar, mode=MS.bass, croot=K.root+ch[0], s;
+    if(useFlute&&(st.fluteLead==="pak"||st.fluteLead==="bansuri"))mode="rootpad";
+    function B(t,midi,dur,v,ex){var o={midi:midi,dur:dur,vel:vel(v)*lift};if(ex)for(var k in ex)o[k]=ex[k];push(t+jit(),"bass",o);}
+    if(mode==="walk"){ /* country: root–5th locked to the kick */
+      B(bt,croot-12,beat*0.85,0.85);
+      B(bt+2*beat,croot-5,beat*0.85,0.7);
+      if(isFill){var nr=K.root+chordAt(b+1)[0];B(bt+3.5*beat,nr-12+(nr>=croot?-2:2),beat*0.4,0.65);}
+    }else if(mode==="bounce"){
+      for(s=0;s<8;s++)B(bt+s*beat/2+sw(s),(s%2?croot+7:croot)-12,beat*0.45,s%2?0.55:0.75);
+    }else if(mode==="drive"){
+      for(s=0;s<8;s++)B(bt+s*beat/2,croot-12,beat*0.42,0.7);
+    }else if(mode==="drone"){
+      B(bt,croot-24,bar,0.7,{drone:true});B(bt,croot-17,bar,0.4,{drone:true});
+    }else if(mode==="rootpad"){
+      B(bt,croot-12,bar*0.9,0.55);
+    }else{ /* root: sad whole-note swell / romantic two-note */
+      if(st.style==="sad")B(bt,croot-12,bar*0.95,0.7,{swell:true});
+      else{B(bt,croot-12,beat*2.4,0.7);B(bt+2*beat,croot-5,beat*1.7,0.55);}
     }
+  }
+
+  /* ---- assemble: 8-bar sections, chorus lifts, fills into changes ---- */
+  for(var b=0;b<bars;b++){
+    var sec=((b/8)|0), lift=(sec%2===1)?1.26:1.0;   /* chorus lifts +2 dB */
+    var isFill=((b%8)===7)&&(b<bars-1);
+    var ch=chordAt(b);
+    chords(b,ch,lift);
+    bassLine(b,ch,lift,isFill);
+    drums(b,lift,isFill);
+    if(doMel)emitMelody(b,SEGS[((b/2)|0)%4],(b>=8)?(st.intensity>=7?2:1):0,lift);
+    if(MS.riser&&b>=bars-2)push(b*bar,"riser",{dur:Math.min(bar*2,total-b*bar),vel:vel(0.5)});
   }
   evs.push({t:total+0.4,kind:"end"});
   evs.sort(function(a,b2){return a.t-b2.t;});
-  return {evs:evs,total:total,style:st.style};
+  return {evs:evs,total:total,style:st.style,segs:SEGS,melBase:melBase,melScale:melScale,bars:bars};
 }
 /* ---------- audio engine ---------- */
 function mcNoiseBuf(ctx){
@@ -1092,13 +1201,13 @@ function mcInst(ctx,out,dSend,t,e,NB){
       ob.type="triangle";ob.frequency.value=midiHz(e.midi);
       fb2.type="lowpass";fb2.frequency.value=e.drone?300:500;
       var d=Math.min(e.dur||0.4,2.5);
-      gb.gain.setValueAtTime(0.0001,t);gb.gain.linearRampToValueAtTime(0.5*v,t+0.01);
+      gb.gain.setValueAtTime(0.0001,t);gb.gain.linearRampToValueAtTime(0.5*v,t+(e.swell?0.8:0.01));
       gb.gain.setValueAtTime(0.5*v,t+Math.max(0.01,d-0.06));
       gb.gain.exponentialRampToValueAtTime(0.0001,t+d);
       ob.connect(fb2);fb2.connect(gb);gb.connect(out);ob.start(t);ob.stop(t+d+0.05);break;}
     case "pad":{
       var dur=e.dur||2;
-      var atk=(e.style==="swell"||e.style==="strings"||e.style==="warm")?1.6:0.4;
+      var atk=(e.style==="chop")?0.02:((e.style==="swell"||e.style==="strings"||e.style==="warm")?1.6:0.4);
       e.notes.forEach(function(m){
         [-4,4].forEach(function(det){
           var op=ctx.createOscillator(),gp=ctx.createGain(),fp=ctx.createBiquadFilter();
@@ -1123,6 +1232,45 @@ function mcInst(ctx,out,dSend,t,e,NB){
       ol.connect(fl);ol2.connect(g6);g6.connect(fl);fl.connect(gl);gl.connect(out);
       if(dSend){var ds=ctx.createGain();ds.gain.value=0.5;gl.connect(ds);ds.connect(dSend);}
       ol.start(t);ol2.start(t);ol.stop(t+dl2+0.05);ol2.stop(t+dl2+0.05);break;}
+    case "tabla":{
+      var bol=e.bol||"na";
+      if(bol==="dha"||bol==="ge"||bol==="dhi"){
+        var f0=bol==="dha"?110:(bol==="ge"?160:140);
+        var ot=ctx.createOscillator(),gt=ctx.createGain();
+        ot.type="sine";ot.frequency.setValueAtTime(f0*2,t);
+        ot.frequency.exponentialRampToValueAtTime(f0,t+0.06);
+        aenv(gt,0.85*v,0.002,bol==="dha"?0.4:0.28);
+        ot.connect(gt);gt.connect(out);ot.start(t);ot.stop(t+0.5);
+        var oh=ctx.createOscillator(),gh=ctx.createGain();
+        oh.type="sine";oh.frequency.value=f0*2;
+        aenv(gh,0.2*v,0.002,0.12);oh.connect(gh);gh.connect(out);oh.start(t);oh.stop(t+0.2);
+        if(bol==="dhi"){
+          var sc=ctx.createBufferSource();sc.buffer=NB;
+          var fc=ctx.createBiquadFilter();fc.type="bandpass";fc.frequency.value=2600;fc.Q.value=1;
+          var gc=ctx.createGain();aenv(gc,0.25*v,0.001,0.05);
+          sc.connect(fc);fc.connect(gc);gc.connect(out);sc.start(t);sc.stop(t+0.1);
+        }
+      }else{
+        var fr=bol==="ka"?5200:(bol==="ta"?4000:(bol==="tin"?3200:2600));
+        var sn=ctx.createBufferSource();sn.buffer=NB;
+        var fn=ctx.createBiquadFilter();fn.type="bandpass";fn.frequency.value=fr;fn.Q.value=1.1;
+        var gn=ctx.createGain();aenv(gn,(bol==="ka"?0.22:0.4)*v,0.001,bol==="ka"?0.03:0.06);
+        sn.connect(fn);fn.connect(gn);gn.connect(out);sn.start(t);sn.stop(t+0.12);
+        if(bol==="dhin"){
+          var og=ctx.createOscillator(),gg=ctx.createGain();og.type="sine";
+          og.frequency.setValueAtTime(320,t);og.frequency.exponentialRampToValueAtTime(150,t+0.08);
+          aenv(gg,0.4*v,0.002,0.2);og.connect(gg);gg.connect(out);og.start(t);og.stop(t+0.3);
+        }
+      }
+      break;}
+    case "clap":{
+      var c0=ctx.createBufferSource();c0.buffer=NB;
+      var cf=ctx.createBiquadFilter();cf.type="bandpass";cf.frequency.value=1500;cf.Q.value=1.2;
+      var cg=ctx.createGain();
+      cg.gain.setValueAtTime(0.0001,t);
+      for(var rp=0;rp<3;rp++){cg.gain.linearRampToValueAtTime(0.5*v*(1-rp*0.25),t+0.004+rp*0.011);}
+      cg.gain.exponentialRampToValueAtTime(0.0001,t+0.14);
+      c0.connect(cf);cf.connect(cg);cg.connect(out);c0.start(t);c0.stop(t+0.2);break;}
     case "flute": fluteNote(ctx,out,t,e,NB,dSend); break;
     case "riser":{
       var sr=ctx.createBufferSource();sr.buffer=NB;sr.loop=true;
