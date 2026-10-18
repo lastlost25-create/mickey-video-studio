@@ -94,6 +94,7 @@ video.preview{width:100%; border-radius:10px; margin-top:10px; background:#000;}
   <button data-tab="t2">✨ Text→Image→Video</button>
   <button data-tab="t3">🤖 AI Video</button>
   <button data-tab="t4">📝 Prompt Lab</button>
+  <button data-tab="t5">🎵 Song Studio</button>
 </nav>
 <main>
 
@@ -210,6 +211,81 @@ video.preview{width:100%; border-radius:10px; margin-top:10px; background:#000;}
     4. <b>Light</b> — ("golden hour", "moonlight", "neon glow")<br>
     5. <b>Mood</b> — ("peaceful", "eerie", "joyful")<br><br>
     ⚠️ One idea per clip. Short clips beat long wish-lists. If it fails, simplify the action first, not the adjectives.
+  </div>
+</section>
+
+<!-- ============ TAB 5 : Song Studio ============ -->
+<section class="tab" id="t5">
+  <div class="card">
+    <h3>🎵 Song Studio</h3>
+    <span class="limit alpha">Writing + production companion</span>
+    <p class="hint">Write lyrics, build your Suno style prompt, then generate the song in the Suno/Udio apps. Full vocal songs are made there — no free tool on earth sings unlimited songs for free, so this tab is your songwriter's desk, not a fake generator.</p>
+  </div>
+  <div class="card">
+    <h3>✍️ Lyrics pad</h3>
+    <p class="hint">Autosaves on this device as you type. Tap a marker to drop it where your cursor is.</p>
+    <div class="seg" id="structRow">
+      <button data-ins="[Intro]">Intro</button><button data-ins="[Verse]">Verse</button>
+      <button data-ins="[Chorus]">Chorus</button><button data-ins="[Bridge]">Bridge</button>
+      <button data-ins="[Outro]">Outro</button>
+    </div>
+    <label>Your lyrics</label>
+    <textarea id="t5lyrics" style="min-height:220px;" placeholder="Type or paste your lyrics here…"></textarea>
+    <p class="hint" id="t5count">0 lines · 0 words</p>
+  </div>
+  <div class="card">
+    <h3>🎛️ Suno style-prompt builder</h3>
+    <label>Genre</label>
+    <div class="seg" id="segT5genre">
+      <button data-v="Southern Gothic Outlaw Country" class="sel">Southern Gothic Outlaw Country</button>
+      <button data-v="Dark Americana">Dark Americana</button>
+      <button data-v="Cinematic Swamp Rock">Cinematic Swamp Rock</button>
+      <button data-v="Outlaw Country">Outlaw Country</button>
+      <button data-v="Delta Blues">Delta Blues</button>
+      <button data-v="Appalachian Folk">Appalachian Folk</button>
+    </div>
+    <label>Tempo <span id="t5bpmVal">78</span> BPM</label>
+    <input type="range" id="rT5bpm" min="60" max="140" value="78">
+    <label>Key</label>
+    <select id="t5key">
+      <option selected>Am</option><option>Em</option><option>Dm</option><option>Gm</option>
+      <option>G</option><option>C</option><option>D</option><option>A</option><option>E</option>
+    </select>
+    <label>Vocal style</label>
+    <div class="seg" id="segT5vocal">
+      <button data-v="gritty weathered male" class="sel">Gritty weathered male</button>
+      <button data-v="half-sung half-rapped male">Half-sung half-rapped</button>
+      <button data-v="deep baritone">Deep baritone</button>
+      <button data-v="raspy female vocal">Raspy female</button>
+    </div>
+    <div class="row"><span>🎤 Half-sung, half-rapped delivery</span><label class="switch"><input type="checkbox" id="cT5half"><span class="knob"></span></label></div>
+    <label>Instruments (edit freely)</label>
+    <input type="text" id="t5inst" value="fingerpicked acoustic guitar, resonator slide, kick + brushed snare, upright bass, dark organ pad, subtle 808 thump">
+    <label>Mood (tap several)</label>
+    <div class="seg" id="moodRow">
+      <button data-v="late-night">late-night</button><button data-v="smoky">smoky</button>
+      <button data-v="cinematic">cinematic</button><button data-v="haunting">haunting</button>
+      <button data-v="rebellious">rebellious</button><button data-v="melancholic">melancholic</button>
+      <button data-v="hopeful">hopeful</button><button data-v="dark">dark</button>
+    </div>
+    <label>Style prompt preview</label>
+    <div class="tpl"><pre id="t5stylePrev"></pre></div>
+    <div class="status" id="st5"></div>
+    <button class="btn ghost" id="bT5copy">📋 Copy style prompt</button>
+    <button class="btn ghost" id="bT5sig">⭐ Load my signature sound</button>
+  </div>
+  <div class="card">
+    <h3>🎤 Generate the song</h3>
+    <span class="limit">Free tiers · check each app for current limits</span>
+    <p class="hint">Full vocal songs are made inside these apps on their free tiers — check each app for its current free limits. No free API anywhere sings unlimited vocal songs.</p>
+    <a class="btn" style="text-decoration:none; text-align:center;" href="https://suno.com" target="_blank" rel="noopener">🎵 Open Suno</a>
+    <a class="btn ghost" style="text-decoration:none; text-align:center;" href="https://udio.com" target="_blank" rel="noopener">🎶 Open Udio</a>
+  </div>
+  <div class="card">
+    <h3>🎬 Make the video</h3>
+    <p class="hint">Upload your finished MP3 — it attaches straight to the Tab 1 animator as its soundtrack.</p>
+    <label>Your song (MP3)</label>
+    <input type="file" id="fT5aud" accept="audio/*" style="padding:10px;">
   </div>
 </section>
 
@@ -553,6 +629,80 @@ TPLS.forEach(([t,p])=>{
     b.textContent="✅ Copied!"; setTimeout(()=>b.textContent="📋 Copy",1500);
   });
   d.appendChild(h); d.appendChild(pre); d.appendChild(b); tc.appendChild(d);
+});
+
+/* ================= TAB 5 : Song Studio ================= */
+function pickSeg(id,v){ const el=document.getElementById(id); if(!el) return;
+  const b=el.querySelector('button[data-v="'+v+'"]'); if(b) b.click(); }
+
+/* --- lyrics pad --- */
+const t5ta=document.getElementById("t5lyrics");
+try{ const s=localStorage.getItem("mvs_lyrics"); if(s) t5ta.value=s; }catch(e){}
+function t5count(){ const v=t5ta.value;
+  const lines=v.split("\n").filter(l=>l.trim().length).length;
+  const words=v.trim()?v.trim().split(/\s+/).length:0;
+  document.getElementById("t5count").textContent=lines+" lines · "+words+" words"; }
+t5ta.addEventListener("input",()=>{ try{localStorage.setItem("mvs_lyrics",t5ta.value);}catch(e){} t5count(); });
+t5count();
+document.querySelectorAll("#structRow button").forEach(b=>b.addEventListener("click",()=>{
+  const m="\n"+b.dataset.ins+"\n";
+  const s=(t5ta.selectionStart!=null)?t5ta.selectionStart:t5ta.value.length;
+  const e=(t5ta.selectionEnd!=null)?t5ta.selectionEnd:s;
+  t5ta.value=t5ta.value.slice(0,s)+m+t5ta.value.slice(e);
+  t5ta.focus(); t5ta.selectionStart=t5ta.selectionEnd=s+m.length;
+  t5ta.dispatchEvent(new Event("input"));
+}));
+
+/* --- style prompt builder --- */
+let t5half=false;
+function updateStyle(){
+  const g=segVal("segT5genre")||"", voc=segVal("segT5vocal")||"";
+  const bpm=document.getElementById("rT5bpm").value;
+  const key=document.getElementById("t5key").value;
+  const inst=document.getElementById("t5inst").value.trim();
+  const moods=Array.prototype.map.call(document.querySelectorAll("#moodRow .sel"),b=>b.dataset.v);
+  let s=[g, bpm+" BPM", "key of "+key, voc+(t5half?" (half-sung, half-rapped)":"")+" vocal", inst].filter(Boolean).join(", ");
+  if(moods.length) s+=", "+moods.join(", ")+" mood";
+  document.getElementById("t5stylePrev").textContent=s;
+}
+segWire("segT5genre",updateStyle);
+segWire("segT5vocal",updateStyle);
+document.getElementById("rT5bpm").addEventListener("input",e=>{document.getElementById("t5bpmVal").textContent=e.target.value; updateStyle();});
+document.getElementById("t5key").addEventListener("change",updateStyle);
+document.getElementById("t5inst").addEventListener("input",updateStyle);
+document.getElementById("cT5half").addEventListener("change",e=>{t5half=e.target.checked; updateStyle();});
+document.querySelectorAll("#moodRow button").forEach(b=>b.addEventListener("click",()=>{b.classList.toggle("sel"); updateStyle();}));
+document.getElementById("bT5copy").addEventListener("click",async ()=>{
+  const p=document.getElementById("t5stylePrev").textContent;
+  try{ await navigator.clipboard.writeText(p); }
+  catch(e){ const ta=document.createElement("textarea"); ta.value=p; document.body.appendChild(ta); ta.select(); try{document.execCommand("copy");}catch(x){} ta.remove(); }
+  const b=document.getElementById("bT5copy"), o=b.textContent;
+  b.textContent="✅ Copied!"; setTimeout(()=>b.textContent=o,1500);
+});
+document.getElementById("bT5sig").addEventListener("click",()=>{
+  pickSeg("segT5genre","Southern Gothic Outlaw Country");
+  document.getElementById("rT5bpm").value=78;
+  document.getElementById("t5bpmVal").textContent="78";
+  document.getElementById("t5key").value="Am";
+  pickSeg("segT5vocal","gritty weathered male");
+  document.getElementById("t5inst").value="fingerpicked acoustic guitar, resonator slide, kick + brushed snare, upright bass, dark organ pad, subtle 808 thump";
+  const c=document.getElementById("cT5half"); c.checked=true; t5half=true;
+  document.querySelectorAll("#moodRow button").forEach(b=>b.classList.toggle("sel",["late-night","smoky","cinematic"].indexOf(b.dataset.v)>=0));
+  updateStyle();
+  setStatus("st5","⭐ Signature sound loaded — copy it into Suno's style box.","ok");
+});
+updateStyle();
+
+/* --- mp3 -> tab 1 hand-off --- */
+document.getElementById("fT5aud").addEventListener("change",e=>{
+  const f=e.target.files[0]; if(!f) return;
+  S1.audio="file"; S1.audioURL=URL.createObjectURL(f);
+  const seg=document.getElementById("segAud");
+  seg.querySelectorAll("button").forEach(x=>x.classList.remove("sel"));
+  const fb=seg.querySelector('button[data-v="file"]'); if(fb) fb.classList.add("sel");
+  document.getElementById("fAud").style.display="block";
+  gotoTab("t1");
+  setStatus("st1","🎵 Song attached: "+f.name+" — pick a photo above and hit Render.","ok");
 });
 </script>
 </body>
