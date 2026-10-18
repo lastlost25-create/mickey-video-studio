@@ -44,6 +44,10 @@ textarea{min-height:90px; resize:vertical;}
 .seg button{flex:1; min-width:64px; padding:11px 4px; font-size:14px; font-weight:700;
   background:var(--card2); color:var(--dim); border:1px solid var(--line); border-radius:10px; cursor:pointer;}
 .seg button.sel{background:linear-gradient(135deg,var(--acc),var(--acc2)); color:#141414; border-color:transparent;}
+.presets{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:6px;}
+.preset{padding:14px 8px; font-size:14px; font-weight:700; background:var(--card2); color:var(--txt);
+  border:1px solid var(--line); border-radius:12px; cursor:pointer; min-height:52px; line-height:1.35;}
+.preset:active{background:linear-gradient(135deg,var(--acc),var(--acc2)); color:#141414; border-color:transparent;}
 input[type=range]{width:100%; accent-color:var(--acc); height:34px;}
 .row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0;}
 .switch{position:relative; width:52px; height:30px; flex:none;}
@@ -151,6 +155,11 @@ video.preview{width:100%; border-radius:10px; margin-top:10px; background:#000;}
 
 <!-- ============ TAB 3 ============ -->
 <section class="tab" id="t3">
+  <div class="card">
+    <h3>🎞️ Realistic motion presets</h3>
+    <p class="hint">One tap fills the prompt box below with a tuned preset — short, one clear action, camera + light included. Then hit Generate on either provider.</p>
+    <div class="presets" id="presetGrid"></div>
+  </div>
   <div class="card">
     <h3>🤖 Pollinations Video</h3>
     <span class="limit alpha">Alpha · free tier · may queue or fail</span>
@@ -494,6 +503,34 @@ document.getElementById("bT3b").addEventListener("click",async ()=>{
   }catch(err){ setStatus("st3b","⚠️ "+(err.message||err),"err"); }
   document.getElementById("sp3b").classList.remove("on"); btn.disabled=false;
 });
+
+/* ================= TAB 3 : realistic motion presets ================= */
+const PRESETS=[
+ ["🗣️ Human talking","Close-up of a smiling man talking to camera, natural lip movement, warm indoor lighting, shallow depth of field, photorealistic"],
+ ["🐕 Dog running","Golden retriever running across a green field toward camera, ears flopping, sunny day, slow motion feel, photorealistic"],
+ ["🐈 Cat eating","Orange tabby cat eating from a bowl, close-up, kitchen background, soft daylight, photorealistic"],
+ ["🐦 Birds flying","Flock of birds flying across a dramatic sunset sky, wings flapping naturally, cinematic wide shot, photorealistic"],
+ ["🐧 Bird picking food","Small sparrow pecking seeds from the ground, quick natural head movements, garden background, macro feel, photorealistic"],
+ ["💧 Water drops","Extreme close-up of water droplets falling and rippling in a puddle, slow motion, crystal clear, photorealistic"],
+ ["🌧️ Rain","Heavy rain falling on a quiet street at night, streetlights glowing, splashes on wet pavement, cinematic, photorealistic"],
+ ["☁️ Clouds","Timelapse of dramatic clouds rolling over mountain peaks, golden hour light, wide cinematic shot, photorealistic"],
+ ["🌳 Trees in wind","Tall trees swaying in strong wind, leaves rustling, overcast sky, forest edge, natural motion, photorealistic"],
+ ["🌊 Ocean waves","Ocean waves crashing on rocks, sea spray in the air, overcast coastal light, slow cinematic push-in, photorealistic"]
+];
+(function(){
+  const grid=document.getElementById("presetGrid");
+  PRESETS.forEach(function(pair){
+    const b=document.createElement("button");
+    b.className="preset"; b.type="button"; b.textContent=pair[0];
+    b.addEventListener("click",function(){
+      const ta=document.getElementById("t3aprompt");
+      ta.value=pair[1];
+      ta.scrollIntoView({behavior:"smooth",block:"center"});
+      setStatus("st3a","✅ Preset loaded — tap Generate video.","ok");
+    });
+    grid.appendChild(b);
+  });
+})();
 
 /* ================= TAB 4 : prompt lab ================= */
 const TPLS=[
