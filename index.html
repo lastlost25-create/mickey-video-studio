@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>🎬 Mickey Video Studio</title>
+<style>
+:root{
+  --bg:#0c0c12; --card:#15151f; --card2:#1c1c28; --line:#2a2a3a;
+  --txt:#f2f2f7; --dim:#a8a8bd; --acc:#ffb020; --acc2:#ff5a3c;
+  --ok:#35d07f; --err:#ff6b6b;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+body{margin:0; background:var(--bg); color:var(--txt);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",Arial,sans-serif;
+  padding-bottom:40px;}
+header{background:linear-gradient(135deg,#1a0f00,#2b1200 60%,#12060a);
+  padding:22px 16px 16px; text-align:center; border-bottom:1px solid var(--line);}
+header h1{margin:0; font-size:24px;}
+header p{margin:6px 0 0; color:var(--dim); font-size:13px;}
+nav.tabs{position:sticky; top:0; z-index:50; display:flex; gap:6px; padding:10px;
+  background:rgba(12,12,18,.96); border-bottom:1px solid var(--line); overflow-x:auto;}
+nav.tabs button{flex:1; min-width:120px; padding:12px 6px; font-size:14px; font-weight:700;
+  color:var(--dim); background:var(--card); border:1px solid var(--line); border-radius:12px; cursor:pointer;}
+nav.tabs button.active{color:#111; background:linear-gradient(135deg,var(--acc),var(--acc2)); border-color:transparent;}
+main{padding:14px; max-width:640px; margin:0 auto;}
+.tab{display:none;} .tab.active{display:block;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px;}
+.card h3{margin:0 0 8px; font-size:16px;}
+.card .limit{display:inline-block; font-size:12px; color:#111; background:var(--acc);
+  border-radius:20px; padding:3px 10px; font-weight:700; margin-bottom:8px;}
+.card .limit.alpha{background:#7c6cf0; color:#fff;}
+.hint{font-size:12.5px; color:var(--dim); line-height:1.5;}
+label{display:block; font-size:13px; color:var(--dim); margin:12px 0 6px; font-weight:600;}
+textarea,input[type=text],input[type=password],select{width:100%; padding:12px; font-size:15px;
+  background:var(--card2); color:var(--txt); border:1px solid var(--line); border-radius:10px;}
+textarea{min-height:90px; resize:vertical;}
+.btn{display:block; width:100%; padding:15px; margin:10px 0; font-size:16px; font-weight:800;
+  border:none; border-radius:12px; cursor:pointer;
+  background:linear-gradient(135deg,var(--acc),var(--acc2)); color:#141414;}
+.btn.ghost{background:var(--card2); color:var(--txt); border:1px solid var(--line);}
+.btn:disabled{opacity:.45; cursor:default;}
+.seg{display:flex; gap:6px; flex-wrap:wrap;}
+.seg button{flex:1; min-width:64px; padding:11px 4px; font-size:14px; font-weight:700;
+  background:var(--card2); color:var(--dim); border:1px solid var(--line); border-radius:10px; cursor:pointer;}
+.seg button.sel{background:linear-gradient(135deg,var(--acc),var(--acc2)); color:#141414; border-color:transparent;}
+input[type=range]{width:100%; accent-color:var(--acc); height:34px;}
+.row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0;}
+.switch{position:relative; width:52px; height:30px; flex:none;}
+.switch input{opacity:0; width:100%; height:100%; margin:0; cursor:pointer;}
+.knob{position:absolute; inset:0; background:var(--card2); border:1px solid var(--line); border-radius:20px; pointer-events:none; transition:.2s;}
+.knob:after{content:""; position:absolute; top:3px; left:4px; width:22px; height:22px; border-radius:50%; background:#888; transition:.2s;}
+.switch input:checked + .knob{background:#3a2c00; border-color:var(--acc);}
+.switch input:checked + .knob:after{left:24px; background:var(--acc);}
+#preview1,#preview2,#preview3a,#preview3b{max-width:100%; border-radius:10px; display:none; margin-top:10px;}
+.prog{height:10px; background:var(--card2); border-radius:6px; overflow:hidden; margin:10px 0; display:none;}
+.prog > div{height:100%; width:0%; background:linear-gradient(90deg,var(--acc),var(--acc2)); transition:width .15s;}
+.status{font-size:13px; color:var(--dim); min-height:20px; margin:6px 0;}
+.status.err{color:var(--err);} .status.ok{color:var(--ok);}
+.spinner{display:none; text-align:center; padding:18px; font-size:15px; color:var(--dim);}
+.spinner.on{display:block;}
+.spin{display:inline-block; width:22px; height:22px; border:3px solid var(--line); border-top-color:var(--acc);
+  border-radius:50%; animation:sp 0.8s linear infinite; vertical-align:-5px; margin-right:8px;}
+@keyframes sp{to{transform:rotate(360deg);}}
+details{margin:10px 0; font-size:13px; color:var(--dim);}
+details summary{cursor:pointer; color:var(--acc); font-weight:700; padding:6px 0;}
+.tpl{background:var(--card2); border:1px solid var(--line); border-radius:12px; padding:12px; margin-bottom:10px;}
+.tpl h4{margin:0 0 6px; font-size:15px;}
+.tpl pre{white-space:pre-wrap; font-size:13px; color:var(--txt); background:#0a0a10;
+  padding:10px; border-radius:8px; margin:0 0 8px; font-family:inherit; line-height:1.5;}
+.copybtn{padding:10px 16px; font-size:14px; font-weight:700; border-radius:10px; border:1px solid var(--line);
+  background:var(--card); color:var(--acc); cursor:pointer;}
+.cheat{background:#101826; border:1px solid #274067; border-radius:12px; padding:12px; font-size:13.5px; line-height:1.7;}
+.cheat b{color:#8fc1ff;}
+footer{text-align:center; color:var(--dim); font-size:12px; padding:18px 14px 30px; line-height:1.7;}
+a{color:var(--acc);}
+.dl{display:none; text-align:center; margin:10px 0;}
+.dl a{display:inline-block; padding:14px 26px; background:var(--ok); color:#06130c; font-weight:800;
+  border-radius:12px; text-decoration:none; font-size:16px;}
+video.preview{width:100%; border-radius:10px; margin-top:10px; background:#000;}
+</style>
+</head>
+<body>
+<header>
+  <h1>🎬 Mickey Video Studio</h1>
+  <p>Free forever · runs in your browser · no sign-up</p>
+</header>
+<nav class="tabs">
+  <button class="active" data-tab="t1">📷 Animate Photo</button>
+  <button data-tab="t2">✨ Text→Image→Video</button>
+  <button data-tab="t3">🤖 AI Video</button>
+  <button data-tab="t4">📝 Prompt Lab</button>
+</nav>
+<main>
+
+<!-- ============ TAB 1 ============ -->
+<section class="tab active" id="t1">
+  <div class="card">
+    <h3>📷 Animate any photo</h3>
+    <p class="hint">Turn a still photo into a cinematic moving clip. Everything renders on your device — your photo never leaves your phone.</p>
+    <label>1 · Choose a photo</label>
+    <input type="file" id="f1" accept="image/*" style="padding:10px;">
+    <img id="preview1" alt="preview">
+    <label>2 · Clip length</label>
+    <div class="seg" id="segDur">
+      <button data-v="5">5s</button><button data-v="8" class="sel">8s</button>
+      <button data-v="10">10s</button><button data-v="15">15s</button>
+    </div>
+    <label>3 · Camera motion</label>
+    <div class="seg" id="segMot">
+      <button data-v="zin" class="sel">🔍 Zoom in</button><button data-v="zout">🔭 Zoom out</button>
+      <button data-v="panl">⬅ Pan left</button><button data-v="panr">Pan right ➡</button>
+      <button data-v="panu">⬆ Pan up</button>
+    </div>
+    <label>4 · Motion strength <span id="intVal">5</span>/10</label>
+    <input type="range" id="rInt" min="1" max="10" value="5">
+    <label>5 · Shape</label>
+    <div class="seg" id="segAsp">
+      <button data-v="9:16" class="sel">📱 9:16</button><button data-v="16:9">🖥 16:9</button><button data-v="1:1">⬛ 1:1</button>
+    </div>
+    <div class="row"><span>🎞 Film grain</span><label class="switch"><input type="checkbox" id="cGrain" checked><span class="knob"></span></label></div>
+    <div class="row"><span>🌑 Vignette</span><label class="switch"><input type="checkbox" id="cVig" checked><span class="knob"></span></label></div>
+    <label>6 · Sound</label>
+    <div class="seg" id="segAud">
+      <button data-v="none" class="sel">🔇 Mute</button><button data-v="file">🎵 My audio file</button><button data-v="pad">🎹 Ambient pad</button>
+    </div>
+    <input type="file" id="fAud" accept="audio/*" style="display:none; margin-top:8px; padding:10px;">
+    <div class="prog" id="prog1"><div></div></div>
+    <div class="status" id="st1"></div>
+    <button class="btn" id="bRender">🎬 Render video</button>
+    <div class="dl" id="dl1"><a href="#" download>⬇ Download video</a></div>
+    <video class="preview" id="vprev1" controls playsinline style="display:none;"></video>
+  </div>
+</section>
+
+<!-- ============ TAB 2 ============ -->
+<section class="tab" id="t2">
+  <div class="card">
+    <h3>✨ Text → Image → Video</h3>
+    <span class="limit">Free · unlimited images · no key</span>
+    <p class="hint">Describe a scene → free AI image (Pollinations/Flux) → send it to the animator. The reliable pipeline that never runs out of quota.</p>
+    <label>Describe your scene</label>
+    <textarea id="t2prompt" placeholder="e.g. A misty Himalayan valley at dawn, prayer flags fluttering, cinematic light"></textarea>
+    <button class="btn" id="bT2">🎨 Generate image</button>
+    <div class="spinner" id="sp2"><span class="spin"></span>Painting your image…</div>
+    <div class="status" id="st2"></div>
+    <img id="preview2" alt="generated">
+    <button class="btn ghost" id="bT2go" style="display:none;">🎬 Animate this →</button>
+  </div>
+</section>
+
+<!-- ============ TAB 3 ============ -->
+<section class="tab" id="t3">
+  <div class="card">
+    <h3>🤖 Pollinations Video</h3>
+    <span class="limit alpha">Alpha · free tier · may queue or fail</span>
+    <p class="hint">True AI video from text. Anonymous requests sometimes work; a free API key makes it reliable. Key stays in your browser, only sent to pollinations.ai.</p>
+    <label>Prompt</label>
+    <textarea id="t3aprompt" placeholder="e.g. A cat walking through a sunlit garden, slow motion"></textarea>
+    <details><summary>🔑 I have a free Pollinations key (optional)</summary>
+      <input type="password" id="t3akey" placeholder="paste key — stored only on this device">
+      <p class="hint">Free key: <a href="https://enter.pollinations.ai/keys" target="_blank" rel="noopener">enter.pollinations.ai/keys</a></p>
+    </details>
+    <button class="btn" id="bT3a">🎥 Generate video</button>
+    <div class="spinner" id="sp3a"><span class="spin"></span>Rendering on their servers… 1–3 min, keep this tab open.</div>
+    <div class="status" id="st3a"></div>
+    <video class="preview" id="preview3a" controls playsinline></video>
+    <div class="dl" id="dl3a"><a href="#" download>⬇ Download video</a></div>
+  </div>
+  <div class="card">
+    <h3>🤖 Magic Hour</h3>
+    <span class="limit">3 free videos / day · free key required</span>
+    <p class="hint">Free tier, no card. Get a free API key from the Magic Hour dashboard, paste once — it's saved on your device only.</p>
+    <label>API key</label>
+    <input type="password" id="t3bkey" placeholder="paste Magic Hour API key">
+    <p class="hint">Get it free: <a href="https://magichour.ai/" target="_blank" rel="noopener">magichour.ai</a> → sign up → API dashboard</p>
+    <label>Prompt</label>
+    <textarea id="t3bprompt" placeholder="e.g. Night market in Lahore, neon signs, rain, cinematic"></textarea>
+    <label>Length</label>
+    <div class="seg" id="segMhDur"><button data-v="5" class="sel">5s</button><button data-v="10">10s</button></div>
+    <button class="btn" id="bT3b">🎥 Generate video</button>
+    <div class="spinner" id="sp3b"><span class="spin"></span>Queued… polling for progress.</div>
+    <div class="status" id="st3b"></div>
+    <video class="preview" id="preview3b" controls playsinline></video>
+    <div class="dl" id="dl3b"><a href="#" download>⬇ Download video</a></div>
+  </div>
+</section>
+
+<!-- ============ TAB 4 ============ -->
+<section class="tab" id="t4">
+  <div class="card">
+    <h3>📝 Prompt Lab</h3>
+    <p class="hint">Tap Copy, paste into Tab 2 or 3 (or your Google Flow app). Fill in the [brackets].</p>
+    <div id="tpls"></div>
+  </div>
+  <div class="cheat">
+    <b>📋 Cheat sheet — good video prompts in 5 pieces:</b><br>
+    1. <b>Subject</b> — who/what is in frame ("a stray dog", "an old fisherman")<br>
+    2. <b>Action</b> — ONE clear thing happening ("shakes off water in slow motion")<br>
+    3. <b>Camera</b> — how it moves ("slow push-in", "static tripod", "drone rising")<br>
+    4. <b>Light</b> — ("golden hour", "moonlight", "neon glow")<br>
+    5. <b>Mood</b> — ("peaceful", "eerie", "joyful")<br><br>
+    ⚠️ One idea per clip. Short clips beat long wish-lists. If it fails, simplify the action first, not the adjectives.
+  </div>
+</section>
+
+</main>
+<footer>
+  Free forever · your photos never leave your device except API calls you start · quotas belong to the providers<br>
+  Made for Mickey 🎬
+</footer>
+<script>
+"use strict";
+/* ================= tabs ================= */
+document.querySelectorAll("nav.tabs button").forEach(b=>{
+  b.addEventListener("click",()=>{
+    document.querySelectorAll("nav.tabs button").forEach(x=>x.classList.remove("active"));
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active");
+    document.getElementById(b.dataset.tab).classList.add("active");
+  });
+});
+function gotoTab(id){
+  document.querySelector('nav.tabs button[data-tab="'+id+'"]').click();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+function segWire(id, cb){
+  const el=document.getElementById(id);
+  el.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{
+    el.querySelectorAll("button").forEach(x=>x.classList.remove("sel"));
+    b.classList.add("sel"); cb(b.dataset.v);
+  }));
+}
+function segVal(id){ const s=document.querySelector("#"+id+" button.sel"); return s?s.dataset.v:null; }
+function setStatus(id,msg,cls){ const e=document.getElementById(id); e.textContent=msg; e.className="status"+(cls?" "+cls:""); }
+function fname(ext){ const d=new Date(),p=n=>String(n).padStart(2,"0");
+  return "mickey-studio-"+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+"-"+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds())+"."+ext; }
+
+/* ================= TAB 1 : animator ================= */
+const S1={img:null,dur:8,motion:"zin",intensity:5,aspect:"9:16",grain:true,vig:true,audio:"none",audioURL:null};
+segWire("segDur",v=>S1.dur=+v);
+segWire("segMot",v=>S1.motion=v);
+segWire("segAsp",v=>S1.aspect=v);
+segWire("segAud",v=>{S1.audio=v; document.getElementById("fAud").style.display=(v==="file")?"block":"none";});
+document.getElementById("rInt").addEventListener("input",e=>{S1.intensity=+e.target.value; document.getElementById("intVal").textContent=e.target.value;});
+document.getElementById("cGrain").addEventListener("change",e=>S1.grain=e.target.checked);
+document.getElementById("cVig").addEventListener("change",e=>S1.vig=e.target.checked);
+document.getElementById("f1").addEventListener("change",e=>{ if(e.target.files[0]) loadImageFile(e.target.files[0]); });
+document.getElementById("fAud").addEventListener("change",e=>{ if(e.target.files[0]){ S1.audioURL=URL.createObjectURL(e.target.files[0]); setStatus("st1","🎵 Audio attached: "+e.target.files[0].name,"ok"); }});
+
+function loadImageFile(file){
+  const url=URL.createObjectURL(file);
+  const im=new Image();
+  im.onload=()=>{ prepImage(im,url); };
+  im.onerror=()=>setStatus("st1","Couldn't read that image — try another file.","err");
+  im.src=url;
+}
+function loadImageFromURL(url){ // used by Tab 2 (CORS-clean blob)
+  setStatus("st1","Loading generated image…");
+  fetch(url).then(r=>{ if(!r.ok) throw new Error("http "+r.status); return r.blob(); })
+    .then(b=>{ const ou=URL.createObjectURL(b); const im=new Image();
+      im.onload=()=>prepImage(im,ou); im.onerror=()=>setStatus("st1","Couldn't load the generated image.","err"); im.src=ou; })
+    .catch(()=>setStatus("st1","Couldn't fetch the generated image — try Generate again.","err"));
+}
+function prepImage(im,url){
+  // downscale huge phone photos to max 2048px
+  const MAX=2048, sc=Math.min(1, MAX/Math.max(im.naturalWidth,im.naturalHeight));
+  const c=document.createElement("canvas");
+  c.width=Math.round(im.naturalWidth*sc); c.height=Math.round(im.naturalHeight*sc);
+  c.getContext("2d").drawImage(im,0,0,c.width,c.height);
+  const im2=new Image();
+  im2.onload=()=>{ S1.img=im2;
+    const pv=document.getElementById("preview1"); pv.src=url; pv.style.display="block";
+    setStatus("st1","✅ Photo ready — hit Render.","ok"); };
+  im2.src=c.toDataURL("image/jpeg",0.92);
+}
+function aspectWH(a){ return a==="9:16"?[1080,1920]:a==="16:9"?[1280,720]:[1080,1080]; }
+function smooth(t){ return t*t*(3-2*t); }
+
+function kbRects(iw,ih,cw,ch,motion,inten){
+  // cover-fit base rect in source coords
+  const s=Math.max(cw/iw,ch/ih), bw=cw/s, bh=ch/s;
+  const bx=(iw-bw)/2, by=(ih-bh)/2, z=1+inten*0.03;
+  const room=Math.min(bw*(z-1)/2, iw-bw>0?(iw-bw)/2:0);
+  const cx=(r)=>({x:Math.max(0,Math.min(iw-r.w,r.x)), y:Math.max(0,Math.min(ih-r.h,r.y)), w:r.w, h:r.h});
+  const zoomed={x:bx-(bw*z-bw)/2, y:by-(bh*z-bh)/2, w:bw*z, h:bh*z};
+  const panW=bw*1.12, panH=bh*1.12, px=(iw-panW)/2, py=(ih-panH)/2, prx=Math.min(panW*0.10,(iw-panW)/2), pry=Math.min(panH*0.10,(ih-panH)/2);
+  let a,b;
+  if(motion==="zin"){ a=cx(zoomed); b=cx({x:bx,y:by,w:bw,h:bh}); }
+  else if(motion==="zout"){ a=cx({x:bx,y:by,w:bw,h:bh}); b=cx(zoomed); }
+  else if(motion==="panl"){ a=cx({x:px+prx,y:py,w:panW,h:panH}); b=cx({x:px-prx,y:py,w:panW,h:panH}); }
+  else if(motion==="panr"){ a=cx({x:px-prx,y:py,w:panW,h:panH}); b=cx({x:px+prx,y:py,w:panW,h:panH}); }
+  else { a=cx({x:px,y:py+pry,w:panW,h:panH}); b=cx({x:px,y:py-pry,w:panW,h:panH}); }
+  return [a,b];
+}
+function makeGrainTiles(){
+  const tiles=[];
+  for(let k=0;k<6;k++){ const c=document.createElement("canvas"); c.width=c.height=128;
+    const g=c.getContext("2d"), d=g.createImageData(128,128);
+    for(let i=0;i<d.data.length;i+=4){ const v=(Math.random()*255)|0; d.data[i]=d.data[i+1]=d.data[i+2]=v; d.data[i+3]=255; }
+    g.putImageData(d,0,0); tiles.push(c); }
+  return tiles;
+}
+function makeVignette(w,h){
+  const c=document.createElement("canvas"); c.width=w; c.height=h;
+  const g=c.getContext("2d"), r=Math.hypot(w,h)/2;
+  const gr=g.createRadialGradient(w/2,h/2,r*0.35,w/2,h/2,r);
+  gr.addColorStop(0,"rgba(0,0,0,0)"); gr.addColorStop(1,"rgba(0,0,0,0.42)");
+  g.fillStyle=gr; g.fillRect(0,0,w,h); return c;
+}
+function pickMime(){
+  const cands=["video/mp4","video/webm;codecs=vp9","video/webm",""];
+  for(const m of cands){ try{ if(!m||MediaRecorder.isTypeSupported(m)) return m; }catch(e){} }
+  return "";
+}
+function startPad(ctx,dest,dur){
+  // simple ambient pad: two detuned sines + slow filter LFO
+  const t0=ctx.currentTime, g=ctx.createGain(); g.gain.value=0.0;
+  const f=ctx.createBiquadFilter(); f.type="lowpass"; f.frequency.value=600;
+  const o1=ctx.createOscillator(), o2=ctx.createOscillator();
+  o1.type="sine"; o2.type="sine"; o1.frequency.value=110; o2.frequency.value=164.81;
+  const lfo=ctx.createOscillator(), lg=ctx.createGain();
+  lfo.frequency.value=0.08; lg.gain.value=0.05; lfo.connect(lg); lg.connect(g.gain);
+  o1.connect(f); o2.connect(f); f.connect(g); g.connect(dest);
+  g.gain.linearRampToValueAtTime(0.14,t0+2);
+  g.gain.setValueAtTime(0.14,t0+Math.max(2,dur-2));
+  g.gain.linearRampToValueAtTime(0.0,t0+dur+0.3);
+  o1.start(t0); o2.start(t0); lfo.start(t0);
+  o1.stop(t0+dur+0.5); o2.stop(t0+dur+0.5); lfo.stop(t0+dur+0.5);
+}
+document.getElementById("bRender").addEventListener("click", async ()=>{
+  if(!S1.img){ setStatus("st1","Pick a photo first 📷","err"); return; }
+  const btn=document.getElementById("bRender"); btn.disabled=true;
+  const prog=document.getElementById("prog1"), bar=prog.querySelector("div");
+  prog.style.display="block"; bar.style.width="0%";
+  document.getElementById("dl1").style.display="none";
+  document.getElementById("vprev1").style.display="none";
+  try{
+    const [cw,ch]=aspectWH(S1.aspect), FPS=30, N=S1.dur*FPS;
+    const cv=document.createElement("canvas"); cv.width=cw; cv.height=ch;
+    const g=cv.getContext("2d");
+    const iw=S1.img.naturalWidth, ih=S1.img.naturalHeight;
+    const [ra,rb]=kbRects(iw,ih,cw,ch,S1.motion,S1.intensity);
+    const tiles=S1.grain?makeGrainTiles():null;
+    const vig=S1.vig?makeVignette(cw,ch):null;
+    const stream=cv.captureStream(FPS);
+    let actx=null, dest=null, audEl=null;
+    if(S1.audio!=="none"){
+      actx=new (window.AudioContext||window.webkitAudioContext)();
+      if(actx.state==="suspended") await actx.resume();
+      dest=actx.createMediaStreamDestination();
+      if(S1.audio==="file"&&S1.audioURL){
+        audEl=new Audio(S1.audioURL); audEl.crossOrigin="anonymous";
+        const src=actx.createMediaElementSource(audEl); src.connect(dest);
+        audEl.loop=true; await audEl.play().catch(()=>{});
+      } else if(S1.audio==="pad"){ startPad(actx,dest,S1.dur); }
+      dest.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
+    }
+    const mime=pickMime();
+    const rec=new MediaRecorder(stream, mime?{mimeType:mime,videoBitsPerSecond:8e6}:undefined);
+    const chunks=[]; rec.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
+    const done=new Promise(r=>rec.onstop=r); rec.start(250);
+    const t0=performance.now();
+    for(let f=0;f<N;f++){
+      const t=smooth(f/(N-1));
+      const rx=ra.x+(rb.x-ra.x)*t, ry=ra.y+(rb.y-ra.y)*t;
+      const rw=ra.w+(rb.w-ra.w)*t, rh=ra.h+(rb.h-ra.h)*t;
+      g.drawImage(S1.img,rx,ry,rw,rh,0,0,cw,ch);
+      if(tiles){ const tl=tiles[f%tiles.length];
+        g.save(); g.globalAlpha=0.07;
+        const ox=(f*37)%128, oy=(f*53)%128;
+        for(let x=-128;x<cw;x+=128) for(let y=-128;y<ch;y+=128) g.drawImage(tl,x+ox-64,y+oy-64);
+        g.restore(); }
+      if(vig) g.drawImage(vig,0,0);
+      if(f%15===0){ bar.style.width=Math.round(f/N*100)+"%";
+        setStatus("st1","Rendering… "+Math.round(f/N*100)+"%");
+        await new Promise(r=>setTimeout(r,0)); }
+    }
+    // let the tail flush
+    await new Promise(r=>setTimeout(r,400));
+    rec.stop(); await done;
+    if(audEl){ audEl.pause(); } if(actx){ actx.close().catch(()=>{}); }
+    const type=mime||"video/webm", ext=mime==="video/mp4"?"mp4":"webm";
+    const blob=new Blob(chunks,{type});
+    const url=URL.createObjectURL(blob);
+    const dla=document.querySelector("#dl1 a"); dla.href=url; dla.download=fname(ext);
+    document.getElementById("dl1").style.display="block";
+    const vp=document.getElementById("vprev1"); vp.src=url; vp.style.display="block";
+    bar.style.width="100%";
+    const secs=((performance.now()-t0)/1000).toFixed(1);
+    setStatus("st1","✅ Done in "+secs+"s — preview above, tap Download.","ok");
+  }catch(err){ setStatus("st1","Render failed: "+(err&&err.message||err),"err"); }
+  btn.disabled=false;
+  setTimeout(()=>{prog.style.display="none";},2500);
+});
+
+/* ================= TAB 2 : text->image->video ================= */
+let T2url=null;
+document.getElementById("bT2").addEventListener("click",()=>{
+  const p=document.getElementById("t2prompt").value.trim();
+  if(!p){ setStatus("st2","Write a scene description first ✍️","err"); return; }
+  const seed=Math.floor(Math.random()*999999);
+  T2url="https://image.pollinations.ai/prompt/"+encodeURIComponent(p)+"?width=768&height=1344&model=flux&nologo=true&seed="+seed;
+  const im=document.getElementById("preview2");
+  document.getElementById("sp2").classList.add("on");
+  document.getElementById("bT2go").style.display="none";
+  setStatus("st2","");
+  im.style.display="none";
+  im.onload=()=>{ document.getElementById("sp2").classList.remove("on");
+    im.style.display="block"; document.getElementById("bT2go").style.display="block";
+    setStatus("st2","✅ Image ready — tap Animate to bring it to life.","ok"); };
+  im.onerror=()=>{ document.getElementById("sp2").classList.remove("on");
+    setStatus("st2","⚠️ The image service hiccuped (free servers get busy). Wait 30s and tap Generate again.","err"); };
+  im.src=T2url;
+});
+document.getElementById("bT2go").addEventListener("click",()=>{
+  if(!T2url) return;
+  gotoTab("t1");
+  loadImageFromURL(T2url);
+});
+
+/* ================= TAB 3a : Pollinations video ================= */
+try{ const k=localStorage.getItem("mvs_poll_key"); if(k) document.getElementById("t3akey").value=k; }catch(e){}
+document.getElementById("t3akey").addEventListener("change",e=>{ try{localStorage.setItem("mvs_poll_key",e.target.value.trim());}catch(x){} });
+document.getElementById("bT3a").addEventListener("click",async ()=>{
+  const p=document.getElementById("t3aprompt").value.trim();
+  if(!p){ setStatus("st3a","Write a prompt first ✍️","err"); return; }
+  const key=document.getElementById("t3akey").value.trim();
+  const url="https://gen.pollinations.ai/video/"+encodeURIComponent(p)+(key?"?key="+encodeURIComponent(key):"");
+  const btn=document.getElementById("bT3a"); btn.disabled=true;
+  document.getElementById("sp3a").classList.add("on");
+  document.getElementById("dl3a").style.display="none";
+  document.getElementById("preview3a").style.display="none";
+  setStatus("st3a","");
+  try{
+    const r=await fetch(url);
+    if(r.status===401){ throw {friendly:true,msg:"🔑 This clip needs a free Pollinations key — get one at enter.pollinations.ai/keys (free tier), paste it above, and try again."}; }
+    if(!r.ok){ const t=await r.text().catch(()=> ""); throw new Error("server said "+r.status+" "+t.slice(0,120)); }
+    const blob=await r.blob();
+    if(!/video/i.test(blob.type)&&blob.size<50000){ throw new Error("odd response ("+blob.size+" bytes) — try again in a minute"); }
+    const ou=URL.createObjectURL(blob);
+    const v=document.getElementById("preview3a"); v.src=ou; v.style.display="block";
+    const dla=document.querySelector("#dl3a a"); dla.href=ou; dla.download=fname("mp4");
+    document.getElementById("dl3a").style.display="block";
+    setStatus("st3a","✅ Video ready — preview above, tap Download.","ok");
+  }catch(err){
+    setStatus("st3a","⚠️ "+(err.friendly?err.msg:("Failed: "+(err.message||err)+". The free alpha servers get busy — wait a minute and retry.")),"err");
+  }
+  document.getElementById("sp3a").classList.remove("on"); btn.disabled=false;
+});
+
+/* ================= TAB 3b : Magic Hour ================= */
+try{ const k=localStorage.getItem("mvs_mh_key"); if(k) document.getElementById("t3bkey").value=k; }catch(e){}
+document.getElementById("t3bkey").addEventListener("change",e=>{ try{localStorage.setItem("mvs_mh_key",e.target.value.trim());}catch(x){} });
+let mhDur=5; segWire("segMhDur",v=>mhDur=+v);
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+document.getElementById("bT3b").addEventListener("click",async ()=>{
+  const key=document.getElementById("t3bkey").value.trim();
+  const p=document.getElementById("t3bprompt").value.trim();
+  if(!key){ setStatus("st3b","Paste your free Magic Hour API key first 🔑","err"); return; }
+  if(!p){ setStatus("st3b","Write a prompt first ✍️","err"); return; }
+  const btn=document.getElementById("bT3b"); btn.disabled=true;
+  document.getElementById("sp3b").classList.add("on");
+  document.getElementById("dl3b").style.display="none";
+  document.getElementById("preview3b").style.display="none";
+  const H={"Authorization":"Bearer "+key,"Content-Type":"application/json"};
+  try{
+    setStatus("st3b","Submitting job…");
+    const cr=await fetch("https://api.magichour.ai/v1/text-to-video",{method:"POST",headers:H,
+      body:JSON.stringify({name:"Mickey Studio clip",end_seconds:mhDur,aspect_ratio:"9:16",
+        resolution:"480p",model:"ltx-2.5",style:{prompt:p}})});
+    if(cr.status===401||cr.status===403) throw new Error("key rejected (401/403) — check the key in your Magic Hour dashboard");
+    const cj=await cr.json().catch(()=>({}));
+    if(!cr.ok) throw new Error("submit failed: "+(cj.message||cj.error||cr.status));
+    const id=cj.id; if(!id) throw new Error("no job id returned");
+    setStatus("st3b","Job "+String(id).slice(0,8)+"… queued — polling (uses ~1 of your 3 free/day).");
+    let final=null;
+    for(let i=0;i<45;i++){
+      await sleep(8000);
+      const pr=await fetch("https://api.magichour.ai/v1/video-projects/"+id,{headers:H});
+      const pj=await pr.json().catch(()=>({}));
+      const st=pj.status||"unknown";
+      setStatus("st3b","Status: "+st+" … ("+(i+1)+"/45)");
+      if(st==="complete"){ final=pj; break; }
+      if(st==="error"||st==="canceled") throw new Error("job "+st+(pj.error?": "+pj.error:""));
+    }
+    if(!final) throw new Error("timed out after ~6 min — check your Magic Hour dashboard for the finished clip");
+    const durl=final.downloads&&final.downloads[0]&&final.downloads[0].url;
+    if(!durl) throw new Error("finished but no download URL came back");
+    const v=document.getElementById("preview3b"); v.src=durl; v.style.display="block";
+    const dla=document.querySelector("#dl3b a"); dla.href=durl; dla.download=fname("mp4"); dla.target="_blank"; dla.rel="noopener";
+    document.getElementById("dl3b").style.display="block";
+    setStatus("st3b","✅ Video ready — preview above, tap Download.","ok");
+  }catch(err){ setStatus("st3b","⚠️ "+(err.message||err),"err"); }
+  document.getElementById("sp3b").classList.remove("on"); btn.disabled=false;
+});
+
+/* ================= TAB 4 : prompt lab ================= */
+const TPLS=[
+ ["🎭 Cinematic portrait","A [young/old] [man/woman] with [distinct feature], [emotion] expression, [place] at [time of day], soft window light on face, shallow depth of field, 35mm film look, slow push-in, contemplative mood"],
+ ["👻 Horror night scene","A [abandoned house / forest / corridor] at midnight, [one clear scary element: flickering lantern / shadow figure], moonlight through [window/trees], fog drifting low, static camera, dread-filled silence, found-footage realism"],
+ ["🏔 Nature drone","Aerial drone shot rising over [Karakoram valley / lake / meadow] at [dawn/dusk], [mist/clouds/river] below, [birds / prayer flags] in frame, golden light, smooth slow ascent, majestic peaceful mood"],
+ ["🖤 Romantic B&W vintage","Black-and-white vintage film, a [couple / lone figure] in [rain / old street / field], [one tender action: sharing an umbrella / looking back and smiling], soft backlight, film grain, gentle handheld push-in, bittersweet 1990s romance"],
+ ["📦 Product shot","A [product] on [surface], [studio / natural] lighting with soft shadows, [one motion: slow 360 rotation / steam rising / hand entering frame], macro detail, clean background, premium commercial feel"],
+ ["😂 Comedy skit","A [funny character: goat in sunglasses / sleepy guard / dramatic uncle] doing [one silly action] in [place], bright daylight, static camera like phone footage, exaggerated expression at the end, playful mood"]
+];
+const tc=document.getElementById("tpls");
+TPLS.forEach(([t,p])=>{
+  const d=document.createElement("div"); d.className="tpl";
+  const h=document.createElement("h4"); h.textContent=t;
+  const pre=document.createElement("pre"); pre.textContent=p;
+  const b=document.createElement("button"); b.className="copybtn"; b.textContent="📋 Copy";
+  b.addEventListener("click",async ()=>{
+    try{ await navigator.clipboard.writeText(p); }
+    catch(e){ const ta=document.createElement("textarea"); ta.value=p; document.body.appendChild(ta); ta.select(); try{document.execCommand("copy");}catch(x){} ta.remove(); }
+    b.textContent="✅ Copied!"; setTimeout(()=>b.textContent="📋 Copy",1500);
+  });
+  d.appendChild(h); d.appendChild(pre); d.appendChild(b); tc.appendChild(d);
+});
+</script>
+</body>
+</html>
